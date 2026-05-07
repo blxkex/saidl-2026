@@ -1,0 +1,71 @@
+\usepackage{ifthen}
+% https://tex.stackexchange.com/questions/45946/stack-datastructure-using-latex
+\makeatletter
+\newcommand\newstack[1]{\let#1\@empty}
+\newcommand{\addQelement}[2]{\gdef\element{#2}\pushQelement{#1}}
+\newcommand{\pushQelement}[1]{\xdef#1{\element+#1}}
+\long\def\popQ#1+#2\@nil#3{\gdef\poppedQelement{#1}\gdef#3{#2}}
+\long\def\peekQ#1+#2\@nil#3{\gdef\poppedQelement{#1}}
+\newcommand\popQelement[1]{\ifx #1\@empty  Error\else\expandafter\popQ#1\@nil#1\fi}
+\newcommand\peekQelement[1]{\ifx #1\@empty  Error\else\expandafter\peekQ#1\@nil#1\fi}
+\makeatother
+
+\makeatletter
+% for amsmath "compatibility" (not sophisticated)
+\usepackage{amsmath}
+\AtBeginDocument {%
+          \def\resetMathstrut@{%
+           \setbox\z@\hbox{\the\textfont\symoperators\char40}%
+           \ht\Mathstrutbox@\ht\z@ \dp\Mathstrutbox@\dp\z@}%
+}%
+\makeatother
+\newcommand*\autooS{\peekQelement{\bracketstack}\ifthenelse{\equal{\poppedQelement}{S}}{\right\originalbardelimiterS\popQelement{\bracketstack}}{\left\originalbardelimiterS\addQelement{\bracketstack}{S}}}
+\newcommand*\autoop{\left(\addQelement{\bracketstack}{p}}
+\newcommand*\autocp{\right)\popQelement{\bracketstack}}
+\newcommand*\autoob{\left[\addQelement{\bracketstack}{b}}
+\newcommand*\autocb{\right]\popQelement{\bracketstack}}
+\DeclareRobustCommand*\{{\ifmmode \left\lbrace\addQelement{\bracketstack}{c} \else \textbraceleft \fi }
+\DeclareRobustCommand*\}{\ifmmode \right\rbrace\popQelement{\bracketstack} \else \textbraceright \fi }
+
+\newstack{\bracketstack}
+\addQelement{\bracketstack}{START}
+\newif\ifinsidebracedgroup
+\AtBeginDocument {%
+   \let\originalbardelimiter\|
+   \let\originalbardelimiterS|
+   \def\mysbar{\peekQelement{\bracketstack}\ifthenelse{\equal{\poppedQelement}{s}}{\right\originalbardelimiter\popQelement{\bracketstack}}{\left\originalbardelimiter\addQelement{\bracketstack}{s}}}%
+   \let\|\mysbar
+   \mathcode`( 32768
+   \mathcode`) 32768
+   \mathcode`[ 32768
+   \mathcode`] 32768
+   \mathcode`| 32768
+
+   \begingroup
+       \lccode`\~`(
+       \lowercase{%
+   \endgroup
+       \let~\autoop
+   }\begingroup
+       \lccode`\~`)
+       \lowercase{%
+   \endgroup
+       \let~\autocp
+   }\begingroup
+       \lccode`\~`[
+       \lowercase{%
+   \endgroup
+       \let~\autoob
+   }\begingroup
+       \lccode`\~`]
+       \lowercase{%
+   \endgroup
+       \let~\autocb
+   }\begingroup
+       \lccode`\~`|
+       \lowercase{%
+   \endgroup
+       \let~\autooS
+   }}
+
+\delimiterfactor 1001

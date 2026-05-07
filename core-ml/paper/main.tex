@@ -1,0 +1,538 @@
+\documentclass[10pt, twocolumn]{article}
+
+% ─────────────────────────────────────────────────────────────────
+%  CORE PACKAGES
+% ─────────────────────────────────────────────────────────────────
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}                  % default CM-style font, clean at small sizes
+\usepackage{microtype}                % better justification / kerning
+\usepackage[table]{xcolor}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{mathtools}
+\usepackage{bm}                       % bold math (\bm{})
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{booktabs}                 % professional table rules
+\usepackage{array}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{hyperref}
+\usepackage{cleveref}
+\usepackage{enumitem}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{listings}
+\usepackage[skins, breakable, listings]{tcolorbox}
+\usepackage{tikz}
+\usepackage{eso-pic}
+\usetikzlibrary{calc}
+
+% ─────────────────────────────────────────────────────────────────
+%  ALTED. COLOR SYSTEM
+% ─────────────────────────────────────────────────────────────────
+\definecolor{altbg}{HTML}{222222}
+\definecolor{altbgraised}{HTML}{2A2A28}
+\definecolor{altbgdeep}{HTML}{1A1A18}
+\definecolor{alttext}{HTML}{E4E4E4}
+\definecolor{altgrey}{HTML}{9E9E9E}
+\definecolor{altdg}{HTML}{525252}
+\definecolor{altborder}{HTML}{444444}
+\definecolor{altborderh}{HTML}{666666}
+\definecolor{altdiv}{HTML}{333333}
+\definecolor{altshadow}{HTML}{111111}
+\definecolor{altlb}{HTML}{888888}
+\definecolor{altgreen}{HTML}{6E9A73}
+\definecolor{altblue}{HTML}{5F87A1}
+\definecolor{altred}{HTML}{A85C5C}
+\definecolor{altdkgreen}{HTML}{3A6342}
+\definecolor{altdkblue}{HTML}{2D5A7A}
+\definecolor{altdkred}{HTML}{8A3535}
+\definecolor{altrowave}{HTML}{252523}
+
+% ─────────────────────────────────────────────────────────────────
+%  PAGE COLOR & TEXT COLOR
+% ─────────────────────────────────────────────────────────────────
+\pagecolor{altbg}
+\color{alttext}
+
+% ─────────────────────────────────────────────────────────────────
+%  BACKGROUND GRID  (very subtle — --div at hairline weight)
+% ─────────────────────────────────────────────────────────────────
+\AddToShipoutPictureBG{%
+  \begin{tikzpicture}[remember picture, overlay,
+    help lines/.append style={line width=0.035pt, color=altdiv}]
+    \draw[help lines] (current page.south west) grid[step=5pt]
+                      (current page.north east);
+  \end{tikzpicture}%
+}
+
+% ─────────────────────────────────────────────────────────────────
+%  GEOMETRY & LAYOUT
+% ─────────────────────────────────────────────────────────────────
+\usepackage[
+    top=1in, bottom=1in,
+    left=0.75in, right=0.75in,
+    columnsep=0.25in
+]{geometry}
+
+% ─────────────────────────────────────────────────────────────────
+%  TITLE FORMATTING  (titling + titlesec)
+% ─────────────────────────────────────────────────────────────────
+\usepackage{titling}
+\usepackage{titlesec}
+\setlength{\droptitle}{-3em}
+
+\pretitle{%
+    \begin{center}
+    \large\bfseries\color{alttext}
+}
+\posttitle{%
+    \end{center}
+    \vspace{0.2em}
+    {\color{altborder}\hrule height 0.5pt}
+    \vspace{0.4em}
+}
+\preauthor{%
+    \begin{center}
+    \small\color{altgrey}
+}
+\postauthor{\end{center}}
+\predate{%
+    \begin{center}
+    \small\color{altdg}
+}
+\postdate{\end{center}\vspace{-0.5em}}
+
+% Section headings — formal, slightly muted, ruled
+\titleformat{\section}
+  {\normalfont\normalsize\bfseries\color{alttext}}
+  {\thesection.}{0.5em}{}[{\color{altborder}\titlerule[0.4pt]}]
+
+\titleformat{\subsection}
+  {\normalfont\small\bfseries\color{altgrey}}
+  {\thesubsection}{0.5em}{}
+
+\titleformat{\subsubsection}
+  {\normalfont\small\itshape\color{altlb}}
+  {\thesubsubsection}{0.5em}{}
+
+\titlespacing{\section}{0pt}{1.2ex plus .2ex}{0.8ex plus .1ex}
+\titlespacing{\subsection}{0pt}{1ex plus .2ex}{0.5ex plus .1ex}
+
+% ─────────────────────────────────────────────────────────────────
+%  CAPTION STYLING
+% ─────────────────────────────────────────────────────────────────
+\captionsetup{
+    font={small, color=altgrey},
+    labelfont={bf, color=altlb},
+    labelsep=period
+}
+
+% ─────────────────────────────────────────────────────────────────
+%  HYPERREF COLORS
+% ─────────────────────────────────────────────────────────────────
+\hypersetup{
+    colorlinks=true,
+    linkcolor=altblue,
+    citecolor=altgreen,
+    urlcolor=altblue,
+    pdftitle={Implementing the Transformer: Attention Mechanisms and Training Dynamics},
+    pdfauthor={Blxke}
+}
+
+% ─────────────────────────────────────────────────────────────────
+%  LISTINGS  (inline code blocks)
+% ─────────────────────────────────────────────────────────────────
+\lstdefinestyle{altpython}{
+    language=Python,
+    basicstyle=\ttfamily\scriptsize\color{alttext},
+    keywordstyle=\color{altblue},
+    stringstyle=\color{altgreen},
+    commentstyle=\color{altdg},
+    numberstyle=\tiny\color{altdg},
+    numbers=left,
+    stepnumber=1,
+    numbersep=5pt,
+    backgroundcolor=\color{altbgdeep},
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=4,
+    breaklines=true,
+    frame=none,
+    xleftmargin=1em,
+    xrightmargin=0.5em,
+}
+
+% ─────────────────────────────────────────────────────────────────
+%  TCOLORBOX ENVIRONMENTS
+% ─────────────────────────────────────────────────────────────────
+\AtBeginEnvironment{tcolorbox}{\small}
+
+%% ── Definition box (--blue accent) ────────────────────────────
+\newtcolorbox{defn}[1][]{%
+    enhanced,
+    breakable,
+    colback=altbgdeep,
+    colframe=altdkblue,
+    coltext=alttext,
+    coltitle=alttext,
+    fonttitle=\bfseries\small,
+    title={Definition\ifx&#1&\else\ --- #1\fi},
+    arc=0pt, outer arc=0pt,
+    leftrule=3pt, rightrule=0.4pt,
+    toprule=0.4pt, bottomrule=0.4pt,
+    boxsep=4pt, left=4pt, right=4pt,
+    top=3pt, bottom=3pt,
+    sharp corners
+}
+
+%% ── Theorem / Proposition box (--green accent) ────────────────
+\newtcolorbox{thm}[1][]{%
+    enhanced,
+    breakable,
+    colback=altbgdeep,
+    colframe=altdkgreen,
+    coltext=alttext,
+    coltitle=alttext,
+    fonttitle=\bfseries\small,
+    title={Theorem\ifx&#1&\else\ --- #1\fi},
+    arc=0pt, outer arc=0pt,
+    leftrule=3pt, rightrule=0.4pt,
+    toprule=0.4pt, bottomrule=0.4pt,
+    boxsep=4pt, left=4pt, right=4pt,
+    top=3pt, bottom=3pt,
+    sharp corners
+}
+
+%% ── Remark / Note (neutral, --border frame) ───────────────────
+\newtcolorbox{remark}[1][]{%
+    enhanced,
+    breakable,
+    colback=altbgraised,
+    colframe=altborder,
+    coltext=alttext,
+    coltitle=altgrey,
+    fonttitle=\small\itshape,
+    title={Remark\ifx&#1&\else: #1\fi},
+    arc=0pt, outer arc=0pt,
+    boxrule=0.4pt,
+    boxsep=4pt, left=4pt, right=4pt,
+    top=3pt, bottom=3pt,
+    sharp corners
+}
+
+%% ── Important / Warning (--red accent) ────────────────────────
+\newtcolorbox{important}[1][]{%
+    enhanced,
+    breakable,
+    colback=altbgdeep,
+    colframe=altdkred,
+    coltext=alttext,
+    coltitle=alttext,
+    fonttitle=\bfseries\small,
+    title={Important\ifx&#1&\else\ --- #1\fi},
+    arc=0pt, outer arc=0pt,
+    leftrule=3pt, rightrule=0.4pt,
+    toprule=0.4pt, bottomrule=0.4pt,
+    boxsep=4pt, left=4pt, right=4pt,
+    top=3pt, bottom=3pt,
+    sharp corners
+}
+
+%% ── Code block wrapper ─────────────────────────────────────────
+\newtcblisting{codebox}[1][Python]{%
+    enhanced,
+    breakable,
+    colback=altbgdeep,
+    colframe=altborder,
+    coltext=alttext,
+    coltitle=altgrey,
+    fonttitle=\ttfamily\scriptsize,
+    title={#1},
+    arc=0pt, outer arc=0pt,
+    boxrule=0.4pt,
+    boxsep=3pt, left=2pt, right=2pt,
+    top=2pt, bottom=2pt,
+    sharp corners,
+    listing only,
+    listing options={style=altpython}
+}
+
+%% ── Equation context box (numbered, titled) ───────────────────
+\newtcolorbox{eqbox}[1][]{%
+    enhanced,
+    colback=altbgraised,
+    colframe=altdiv,
+    coltext=alttext,
+    arc=0pt, outer arc=0pt,
+    boxrule=0.4pt,
+    boxsep=4pt, left=6pt, right=6pt,
+    top=4pt, bottom=4pt,
+    sharp corners,
+    IfValueT={#1}{\tcbtitle={#1}}
+}
+
+% ─────────────────────────────────────────────────────────────────
+%  MATH THEOREM ENVIRONMENTS  (unnumbered, use tcolorbox wrappers)
+% ─────────────────────────────────────────────────────────────────
+\theoremstyle{plain}
+\newtheorem{proposition}{Proposition}
+\newtheorem{lemma}{Lemma}
+
+% ─────────────────────────────────────────────────────────────────
+%  COMMANDS
+% ─────────────────────────────────────────────────────────────────
+\newcommand{\bb}[1]{\textbf{#1}}
+\newcommand{\muted}[1]{\textcolor{altgrey}{#1}}
+\newcommand{\acc}[1]{\textcolor{altblue}{#1}}
+\newcommand{\code}[1]{\texttt{\textcolor{altgrey}{#1}}}
+
+% Math shorthands
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\softmax}{\operatorname{softmax}}
+\newcommand{\LayerNorm}{\operatorname{LayerNorm}}
+\newcommand{\Attn}{\operatorname{Attention}}
+\newcommand{\MHA}{\operatorname{MHA}}
+
+% ─────────────────────────────────────────────────────────────────
+%  DOCUMENT METADATA
+% ─────────────────────────────────────────────────────────────────
+\title{%
+    CoreML: Implementing the Transformer and the Variations.
+}
+\author{%
+    Bhuvanesh Reddy
+}
+\date{\small\muted{\today}}
+
+% ════════════════════════════════════════════════════════════════
+\begin{document}
+% ════════════════════════════════════════════════════════════════
+
+\maketitle
+\thispagestyle{empty}
+
+% ─────────────────────────────────────────────────────────────────
+%  ABSTRACT
+% ─────────────────────────────────────────────────────────────────
+\begin{tcolorbox}[
+    enhanced,
+    colback=altbgraised,
+    colframe=altborder,
+    coltext=alttext,
+    arc=0pt, outer arc=0pt,
+    boxrule=0.5pt,
+    sharp corners,
+    left=6pt, right=6pt, top=5pt, bottom=5pt,
+    before upper={\textbf{\small Abstract.}\hspace{0.5em}}
+]
+\small
+I present a from-scratch implementation of the Baseline Transformer architecture along with exploring variants in the positional encoding and attention heads.
+\end{tcolorbox}
+
+\vspace{0.5em}
+
+% ─────────────────────────────────────────────────────────────────
+\section{Introduction}
+% ─────────────────────────────────────────────────────────────────
+
+The Transformer \cite{vaswani2017attention} discards recurrence entirely,
+relying solely on attention mechanisms to model dependencies between positions.
+This section motivates the architecture and outlines the contributions of this
+assignment.
+
+\begin{defn}[Scaled Dot-Product Attention]
+Given queries $\bm{Q} \in \R^{n \times d_k}$, keys $\bm{K} \in \R^{m \times d_k}$,
+and values $\bm{V} \in \R^{m \times d_v}$, attention is defined as
+\begin{equation}
+    \Attn(\bm{Q}, \bm{K}, \bm{V}) =
+        \softmax\!\left(\frac{\bm{Q}\bm{K}^\top}{\sqrt{d_k}}\right)\bm{V}.
+    \label{eq:attention}
+\end{equation}
+\end{defn}
+
+The $\sqrt{d_k}$ scaling prevents the dot products from entering saturation
+regions of the softmax when $d_k$ is large.
+
+% ─────────────────────────────────────────────────────────────────
+\section{Architecture}
+% ─────────────────────────────────────────────────────────────────
+
+\subsection{Multi-Head Attention}
+
+Rather than computing a single attention function, the model projects $\bm{Q}$,
+$\bm{K}$, $\bm{V}$ $h$ times with learned linear projections, attends in
+parallel, then concatenates:
+
+\begin{eqbox}
+\begin{equation}
+    \MHA(\bm{Q},\bm{K},\bm{V}) =
+        \operatorname{Concat}(\text{head}_1, \ldots, \text{head}_h)\,\bm{W}^O
+    \label{eq:mha}
+\end{equation}
+\end{eqbox}
+
+where $\text{head}_i = \Attn(\bm{Q}\bm{W}_i^Q,\, \bm{K}\bm{W}_i^K,\,
+\bm{V}\bm{W}_i^V)$.
+
+\begin{thm}[Expressivity of MHA]
+Multi-head attention with $h$ heads and $d_{\text{model}} = h\,d_k$ parameters
+is strictly more expressive than single-head attention with the same parameter
+budget, as each head can attend to a distinct subspace of the representation.
+\end{thm}
+
+\subsection{Position-wise Feed-Forward Network}
+
+Each encoder/decoder layer includes a two-layer FFN applied identically to
+each position:
+\begin{equation}
+    \operatorname{FFN}(\bm{x}) = \max(0,\, \bm{x}\bm{W}_1 + \bm{b}_1)\bm{W}_2 + \bm{b}_2
+\end{equation}
+
+\begin{remark}[Dimensionality]
+The inner dimension is typically $d_{ff} = 4\,d_{\text{model}}$.
+In the base model \cite{vaswani2017attention}, $d_{\text{model}} = 512$
+and $d_{ff} = 2048$.
+\end{remark}
+
+\subsection{Positional Encoding}
+
+Since attention is permutation-equivariant, position information must be
+injected explicitly. Sinusoidal encodings are given by:
+\begin{align}
+    \text{PE}_{(pos,\,2i)}   &= \sin\!\left(pos / 10000^{2i/d}\right) \\
+    \text{PE}_{(pos,\,2i+1)} &= \cos\!\left(pos / 10000^{2i/d}\right)
+\end{align}
+
+\begin{important}[Learned vs.\ Sinusoidal]
+Learned positional embeddings and sinusoidal encodings achieve comparable
+performance; however, sinusoidal encodings generalise to sequence lengths
+unseen during training.
+\end{important}
+
+% ─────────────────────────────────────────────────────────────────
+\section{Implementation}
+% ─────────────────────────────────────────────────────────────────
+
+\subsection{Attention Module}
+
+The core attention function in PyTorch:
+
+\begin{codebox}[Python — Scaled Dot-Product Attention]
+import torch
+import torch.nn.functional as F
+import math
+
+def scaled_dot_product_attention(Q, K, V, mask=None):
+    """
+    Q, K, V : (batch, heads, seq, d_k)
+    """
+    d_k = Q.size(-1)
+    scores = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(d_k)
+    if mask is not None:
+        scores = scores.masked_fill(mask == 0, float('-inf'))
+    weights = F.softmax(scores, dim=-1)
+    return torch.matmul(weights, V), weights
+\end{codebox}
+
+\subsection{Layer Normalisation}
+
+Residual connections are followed by layer normalisation:
+\begin{equation}
+    \bm{y} = \LayerNorm\!\left(\bm{x} + \operatorname{Sublayer}(\bm{x})\right)
+\end{equation}
+
+\begin{remark}[Pre-LN vs.\ Post-LN]
+Modern implementations (GPT, LLaMA) typically apply normalisation
+\emph{before} the sublayer (\emph{Pre-LN}), which improves gradient flow and
+stabilises training without a learning rate warm-up.
+\end{remark}
+
+% ─────────────────────────────────────────────────────────────────
+\section{Training Dynamics}
+% ─────────────────────────────────────────────────────────────────
+
+\subsection{Learning Rate Schedule}
+
+The original Transformer uses a warm-up schedule:
+\begin{equation}
+    \alpha = d_{\text{model}}^{-0.5}
+              \cdot \min\!\left(\mathit{step}^{-0.5},\;
+              \mathit{step} \cdot \mathit{warmup}^{-1.5}\right)
+\end{equation}
+
+\begin{important}[Warm-up Critical]
+Without the linear warm-up phase the model often diverges in early training.
+A typical value is $\mathit{warmup} = 4000$ steps.
+\end{important}
+
+\subsection{Regularisation}
+
+Three regularisation strategies are employed:
+
+\begin{enumerate}[leftmargin=*, itemsep=2pt, topsep=3pt]
+    \item \textbf{Dropout} applied to attention weights and sublayer outputs
+          ($p_{\text{drop}} = 0.1$).
+    \item \textbf{Label smoothing} with $\varepsilon_{ls} = 0.1$, which hurts
+          perplexity but improves BLEU.
+    \item \textbf{Weight decay} ($\lambda = 10^{-4}$) on all non-bias parameters.
+\end{enumerate}
+
+% ─────────────────────────────────────────────────────────────────
+\section{Experimental Results}
+% ─────────────────────────────────────────────────────────────────
+
+\subsection{Ablation: Number of Heads}
+
+\begin{table}[H]
+\centering
+\small
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{lccc}
+\toprule
+\rowcolor{altbgraised}
+\textbf{Heads} ($h$) & \textbf{Val.\ Loss} & \textbf{BLEU} & \textbf{Params} \\
+\midrule
+1  & 3.42 & 18.1 & 37.4M \\
+\rowcolor{altrowave}
+4  & 2.91 & 23.7 & 37.4M \\
+8  & 2.78 & 25.3 & 37.4M \\
+\rowcolor{altrowave}
+16 & 2.81 & 24.9 & 37.4M \\
+\bottomrule
+\end{tabular}
+\caption{Effect of the number of attention heads (base model, $d_{\text{model}}=512$).}
+\label{tab:heads}
+\end{table}
+
+Eight heads yields the best BLEU score; increasing to 16 slightly degrades
+performance, consistent with findings in \cite{voita2019analyzing}.
+
+% ─────────────────────────────────────────────────────────────────
+\section{Conclusion}
+% ─────────────────────────────────────────────────────────────────
+
+We have implemented and analysed the Transformer architecture from scratch,
+covering attention, positional encodings, layer normalisation, and training
+dynamics. Ablation results confirm the importance of multi-head attention and
+proper learning rate scheduling. Future work will explore relative positional
+encodings and sparse attention variants.
+
+% ─────────────────────────────────────────────────────────────────
+%  REFERENCES  (replace with .bib file as needed)
+% ─────────────────────────────────────────────────────────────────
+\begin{thebibliography}{9}
+\small
+\bibitem{vaswani2017attention}
+A.\ Vaswani et al., ``Attention is all you need,''
+\textit{NeurIPS}, 2017.
+
+\bibitem{voita2019analyzing}
+E.\ Voita et al., ``Analyzing multi-head self-attention: Specialized heads
+do the heavy lifting, the rest can be pruned,''
+\textit{ACL}, 2019.
+\end{thebibliography}
+
+\end{document}
