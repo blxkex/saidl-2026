@@ -72,8 +72,7 @@ class DataPreprocessor:
             dataset,
             batch_size=self.batch_size,
             shuffle=(feature == "train"),
-            drop_last=True
+            drop_last=True,
         )
 
         return dataloader
-

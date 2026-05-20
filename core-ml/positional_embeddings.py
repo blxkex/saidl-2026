@@ -114,4 +114,32 @@ class ALiBi(nn.Module):
         )
         final_attn_mask = self.alibi_bias + causal_mask
 
-        return final_attn_mask
+        return x + final_attn_mask
+
+
+class RPE(nn.Module):
+    def __init__(self, heads: int, seq_len: int, max_distance: int, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # shape = (distance buckets, number of heads)
+        self.rpe_bias_table = nn.Embedding(max_distance + 1, heads)
+
+        positions = t.arange(seq_len)
+        distances = positions.unsqueeze(1) - positions.unsqueeze(0)  # shape = (L, L)
+
+        c_dist = t.clamp(
+            distances, min=0, max=max_distance
+        )  # automatically makes the negative become zero.
+
+        self.register_buffer("c_dist_cache", c_dist)
+
+    def forward(self, x):
+
+        cur_len = x.size(-1)
+        c_dist = self.c_dist_cache[:cur_len, :cur_len]
+
+        b: t.Tensor = self.rpe_bias_table(c_dist)  # dim: (L, L, n)
+
+        rpe_bias = b.permute(2, 0, 1).unsqueeze(0)  # dim: (1, n, L, L)
+
+        return x + rpe_bias

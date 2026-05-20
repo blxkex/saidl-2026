@@ -114,6 +114,7 @@ class FlexibleAttentionBlock(nn.Module):
         heads,
         # some specific arguments for the variants smh.
         window_size: int | None = None,
+        max_distance: int | None = None,
         *args,
         **kwargs,
     ):
@@ -125,6 +126,15 @@ class FlexibleAttentionBlock(nn.Module):
 
         if self.pe == "RoPE":
             self.PE = RoPE(dim=dim, seq_len=seq_len)
+
+        elif self.pe == "ALiBI":
+            self.PE = ALiBi(heads=heads, seq_len=seq_len)
+
+        elif self.pe == "RPE":
+            assert (
+                max_distance is not None
+            ), "Pass in max_distance if you want to use RPE"
+            self.PE = RPE(heads=heads, seq_len=seq_len, max_distance=max_distance)
 
         if self.variant == "SWA":
             assert (
@@ -161,7 +171,7 @@ class FlexibleAttentionBlock(nn.Module):
         PreV = self.Vw(x)
 
         if self.pe == "RoPE":
-            Q, K = self.PE(Q, K)
+            Q, K = self.PE(PreQ, PreK)
 
         Q = Q.view(B, L, self.heads, self.head_dim).permute(0, 2, 1, 3)
         K = K.view(B, L, self.heads, self.head_dim).permute(0, 2, 1, 3)
@@ -175,6 +185,11 @@ class FlexibleAttentionBlock(nn.Module):
 
             # size = (B, n, L, L)
             scaled_attn_weights = attn_weights / math.sqrt(self.head_dim)
+
+            if self.pe == "ALiBi":
+                scaled_attn_weights = self.PE(ALiBi)
+            elif self.pe == "RPE":
+                scaled_attn_weights = self.PE(ALiBi)
 
             masked_attn = scaled_attn_weights + self.attn_mask
 
