@@ -48,6 +48,7 @@ class SelfAttention(nn.Module):
         return out
 
 
+# baseline attention head AbsPE and standard MHA.
 class MaskedMultiHeadedAttention(nn.Module):
     """
     (B, L, E) -> (B, n_heads, L, E/n_heads) [goes through multiple attention heads by splitting up the embedding dimensions] -> (B, L, E)
@@ -107,7 +108,7 @@ class MaskedMultiHeadedAttention(nn.Module):
 class FlexibleAttentionBlock(nn.Module):
     def __init__(
         self,
-        pe: Literal["RoPE", "ALiBI", "RPE"],
+        pe: Literal["RoPE", "ALiBi", "RPE"],
         variant: Literal["SWA", "MQA", "GQA"],
         dim,
         seq_len,
@@ -115,6 +116,7 @@ class FlexibleAttentionBlock(nn.Module):
         # some specific arguments for the variants smh.
         window_size: int | None = None,
         max_distance: int | None = None,
+        groups: int | None = None,
         *args,
         **kwargs,
     ):
@@ -124,10 +126,14 @@ class FlexibleAttentionBlock(nn.Module):
         self.pe = pe
         self.variant = variant
 
-        if self.pe == "RoPE":
-            self.PE = RoPE(dim=dim, seq_len=seq_len)
+        self.dim = dim
+        self.heads = heads  # no.of attention heads
+        self.head_dim = dim // heads
 
-        elif self.pe == "ALiBI":
+        if self.pe == "RoPE":
+            self.PE = RoPE(dim=self.head_dim, seq_len=seq_len)
+
+        elif self.pe == "ALiBi":
             self.PE = ALiBi(heads=heads, seq_len=seq_len)
 
         elif self.pe == "RPE":
@@ -136,68 +142,91 @@ class FlexibleAttentionBlock(nn.Module):
             ), "Pass in max_distance if you want to use RPE"
             self.PE = RPE(heads=heads, seq_len=seq_len, max_distance=max_distance)
 
+        # masking part
+        positions = t.arange(seq_len)
+
         if self.variant == "SWA":
             assert (
                 window_size is not None
-            ), "Nigga, pass in `window_size` if you using SWA."
-            positions = t.arange(seq_len)
+            ), "Nigga, pass in window_size if you using SWA."
 
-            # gives a matrix of (seq_len, seq_len). An anti-symmetric matrix.
             distances = positions.unsqueeze(1) - positions.unsqueeze(0)
+            allowed = (distances >= 0) & (distances < window_size)
+            mask = t.where(allowed, 0.0, float("-inf"))
 
-            allowed = (distances >= 0) & (
-                distances < window_size
-            )  # gives a matrix filled with True/False.
+            self.groups = self.heads
+        else:
+            # Standard causal mask for MQA / GQA so it doesn't throw an error
+            mask = t.where(
+                positions.unsqueeze(1) <= positions.unsqueeze(0), 0.0, float("-inf")
+            )
 
-            self.attn_mask = t.where(allowed, 0.0, float("-inf"))
+        # Register as a buffer so PyTorch handles moving it to the GPU automatically
+        self.register_buffer("attn_mask", mask)
 
-        self.Qw = nn.Linear
+        if self.variant == "MQA":
+            self.groups = 1
+            self.repeats = self.heads
 
-        self.dim = dim
-        self.heads = heads  # no.of attention heads
-        self.head_dim = dim // heads
+        elif self.variant == "GQA":
+            assert groups is not None, "pass in groups, you selected GQA."
+            assert (
+                heads % groups == 0
+            ), "Number of heads must be divisible by the number of groups."
+            self.groups = groups
+            self.repeats = heads // groups
 
         self.Qw = nn.Linear(dim, dim)
         self.Kw = nn.Linear(dim, dim)
         self.Vw = nn.Linear(dim, dim)
+
+        if self.variant in ["MQA", "GQA"]:
+            self.Kw = nn.Linear(dim, self.groups * self.head_dim)
+            self.Vw = nn.Linear(dim, self.groups * self.head_dim)
+
         self.Wo = nn.Linear(dim, dim)  # output projection.
 
     def forward(self, x: t.Tensor):
 
         B, L, _ = x.size()
+        masked_attn = self.attn_mask[
+            :L, :L
+        ]  # slicing to the current length (only affects edge cases).
 
-        PreQ = self.Qw(x)
-        PreK = self.Kw(x)
-        PreV = self.Vw(x)
-
-        if self.pe == "RoPE":
-            Q, K = self.PE(PreQ, PreK)
+        Q = self.Qw(x)
+        K = self.Kw(x)
+        V = self.Vw(x)
 
         Q = Q.view(B, L, self.heads, self.head_dim).permute(0, 2, 1, 3)
-        K = K.view(B, L, self.heads, self.head_dim).permute(0, 2, 1, 3)
-        V = PreV.view(B, L, self.heads, self.head_dim).permute(0, 2, 1, 3)
+        K = K.view(B, L, self.groups, self.head_dim).permute(0, 2, 1, 3)
+        V = V.view(B, L, self.groups, self.head_dim).permute(0, 2, 1, 3)
 
-        if self.variant == "SWA":
+        if self.pe == "RoPE":
+            Q, K = self.PE(Q, K)
 
-            attn_weights = Q @ K.permute(
-                0, 1, 3, 2
-            )  # (B, n, L, E/n) x (B, n, E/n, L) = (B, n, L, L)
+        if self.variant in ["MQA", "GQA"]:
+            K = K.repeat_interleave(self.repeats, dim=1)
+            V = V.repeat_interleave(self.repeats, dim=1)
 
-            # size = (B, n, L, L)
-            scaled_attn_weights = attn_weights / math.sqrt(self.head_dim)
+        attn_weights = Q @ K.permute(
+            0, 1, 3, 2
+        )  # (B, n, L, E/n) x (B, n, E/n, L) = (B, n, L, L)
 
-            if self.pe == "ALiBi":
-                scaled_attn_weights = self.PE(ALiBi)
-            elif self.pe == "RPE":
-                scaled_attn_weights = self.PE(ALiBi)
+        # size = (B, n, L, L)
+        scaled_attn_weights = attn_weights / math.sqrt(self.head_dim)
 
-            masked_attn = scaled_attn_weights + self.attn_mask
+        if self.pe == "ALiBi":
+            scaled_attn_weights = self.PE(scaled_attn_weights)
+        elif self.pe == "RPE":
+            scaled_attn_weights = self.PE(scaled_attn_weights)
 
-            attn_scores = F.softmax(masked_attn, dim=-1)
+        masked_attn = scaled_attn_weights + masked_attn
 
-            # final output
-            out = attn_scores @ V  # (B, n, L, L) x (B, n, L, E/n) = (B, n, L, E/n)
-            out = out.permute(0, 2, 1, 3).contiguous().view(B, L, self.dim)  # (B, L, E)
-            out = self.Wo(out)
+        attn_scores = F.softmax(masked_attn, dim=-1)
 
-            return out
+        # final output
+        out = attn_scores @ V  # (B, n, L, L) x (B, n, L, E/n) = (B, n, L, E/n)
+        out = out.permute(0, 2, 1, 3).contiguous().view(B, L, self.dim)  # (B, L, E)
+        out = self.Wo(out)
+
+        return out

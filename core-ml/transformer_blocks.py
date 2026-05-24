@@ -24,12 +24,18 @@ class TransformerBlock(nn.Module):
     Transformer block... Based on the architectural diagram from "Attention is all You Need".
     """
 
-    def __init__(self, ctx_len: int, dim: int, heads: int = 8, Attention: nn.Module = MaskedMultiHeadedAttention):
+    def __init__(
+        self,
+        ctx_len: int,
+        dim: int,
+        heads: int = 8,
+        attention: nn.Module = MaskedMultiHeadedAttention,
+    ):
         super().__init__()
 
         self.layer_norm1 = nn.LayerNorm(dim)
         self.layer_norm2 = nn.LayerNorm(dim)
-        self.attention = Attention(heads, ctx_len, dim)
+        self.attention = attention(heads, ctx_len, dim)
 
         self.mlp = MLP(dim)
 
@@ -51,6 +57,80 @@ class TransformerBlock(nn.Module):
         return x
 
 
+class ConvAttentionBlock(nn.Module):
+    def __init__(
+        self,
+        heads: int,
+        seq_len: int,
+        dim: int,
+        kernel_size: int,
+        padding: int,
+        attention_block: nn.Module,
+    ):
+        super().__init__()
+
+        self.conv1 = nn.Conv1d(dim, dim, kernel_size=kernel_size, padding=padding)
+        self.norm1 = nn.LayerNorm(dim)
+        self.attn = attention_block
+        self.norm2 = nn.LayerNorm(dim)
+        self.gelu = nn.GELU()
+
+        self.mlp = MLP(dim)
+
+    def forward(self, x):
+
+        residue = x
+        x = self.norm1(x)
+
+        x = x.permute(0, 2, 1)  # (B, E, L)
+        x = self.conv1(x)
+        x = x.permute(0, 2, 1)  # (B, L, E)
+
+        x = self.gelu(x)
+        x = self.attn(x)
+
+        x = x + residue
+
+        residue = x
+
+        x = self.norm2(x)
+
+        x = self.mlp(x)
+        x = x + residue
+
+        return x
+
+
+class ConvBlock(nn.Module):
+    def __init__(self, dim: int, kernel_size: int, padding: int):
+        super().__init__()
+
+        self.conv = nn.Conv1d(dim, dim, kernel_size=kernel_size, padding=padding)
+        self.norm1 = nn.LayerNorm(dim)
+        self.gelu = nn.GELU()
+        self.mlp = MLP(dim)
+        self.norm2 = nn.LayerNorm(dim)
+
+    def forward(self, x):
+        residue = x
+        x = self.norm1(x)
+
+        x = x.permute(0, 2, 1)  # (B, E, L)
+        x = self.conv(x)
+        x = x.permute(0, 2, 1)  # (B, L, E)
+
+        x = self.gelu(x)
+
+        x = x + residue
+
+        x = self.norm2(x)
+        x = self.mlp(x)
+
+        x = x + residue
+
+        return x
+
+
 class ModularTransformer(nn.Module):
     def __init__(self, ctx_len, dim, heads, n_layers, vocab_size, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -61,7 +141,6 @@ class ModularTransformer(nn.Module):
         )
         self.ln_final = nn.LayerNorm(dim)
         self.lm_head = nn.Linear(dim, vocab_size)
-
 
     def forward(self, x):  # x: (B, L) token ids
         positions = t.arange(x.size(1), device=x.device)

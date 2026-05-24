@@ -103,7 +103,7 @@ class ALiBi(nn.Module):
         # negative so that the penalties remain negative.
         penals = -t.abs(distances)
 
-        slopes = 2 ** -(t.arange(1, heads + 1, dtype=t.float32) * 8 / heads)
+        slopes = 2 ** -(t.arange(heads, dtype=t.float32) * 8 / heads)
         slopes = slopes.reshape(heads, 1, 1)
 
         self.register_buffer("alibi_bias", slopes * penals)
