@@ -17,9 +17,7 @@ from transformer_blocks import *
 from data_preprocess import DataPreprocessor
 
 
-# -------------------------------------------------------------
-# Model construction (attention built outside ModularTransformer)
-# -------------------------------------------------------------
+# attention setup.
 def build_attention(cfg: DictConfig, ctx_len: int, dim: int, heads: int) -> nn.Module:
     a = cfg.model.attention
     if a.type == "mha":
@@ -113,6 +111,20 @@ def train(cfg: DictConfig):
     writer = SummaryWriter(log_dir=log_dir)
     writer.add_text("config", OmegaConf.to_yaml(cfg))
 
+    # Weights & Biases (optional, gated by cfg.wandb.enabled). Lazy import so the
+    # dep is only required when actually used.
+    use_wandb = cfg.wandb.enabled
+    if use_wandb:
+        import wandb
+
+        wandb.init(
+            project=cfg.wandb.project,
+            entity=cfg.wandb.entity,
+            name=cfg.wandb.name,
+            mode=cfg.wandb.mode,
+            config=OmegaConf.to_container(cfg, resolve=True),
+        )
+
     print("=" * 70)
     print(f"Transformer Training — device={device.type.upper()} | {arch}")
     print(
@@ -125,6 +137,7 @@ def train(cfg: DictConfig):
         f"lr={cfg.training.lr}"
     )
     print(f"TensorBoard log_dir: {log_dir}")
+    print(f"W&B: {'enabled (' + cfg.wandb.project + ')' if use_wandb else 'disabled'}")
     print("=" * 70)
 
     # -------------------------------------------------------------
@@ -177,6 +190,11 @@ def train(cfg: DictConfig):
 
             writer.add_scalar("train/loss_step", loss.item(), global_step)
             writer.add_scalar("train/tok_per_s", tok_s, global_step)
+            if use_wandb:
+                wandb.log(
+                    {"train/loss_step": loss.item(), "train/tok_per_s": tok_s},
+                    step=global_step,
+                )
 
         avg_loss = total_loss / n_batches
         # Clip perplexity for logging so we don't overflow on poor inits
@@ -189,6 +207,16 @@ def train(cfg: DictConfig):
         writer.add_scalar("train/loss_epoch", avg_loss, epoch + 1)
         writer.add_scalar("train/perplexity", perplexity, epoch + 1)
         writer.add_scalar("train/epoch_tok_per_s", epoch_tok_s, epoch + 1)
+        if use_wandb:
+            wandb.log(
+                {
+                    "train/loss_epoch": avg_loss,
+                    "train/perplexity": perplexity,
+                    "train/epoch_tok_per_s": epoch_tok_s,
+                    "epoch": epoch + 1,
+                },
+                step=global_step,
+            )
 
         epoch_bar.set_postfix(loss=f"{avg_loss:.4f}", ppl=f"{perplexity:.2f}")
         tqdm.write(
@@ -213,6 +241,9 @@ def train(cfg: DictConfig):
     )
 
     writer.close()
+    if use_wandb:
+        wandb.save(save_path)
+        wandb.finish()
 
     print("=" * 70)
     print(f"Training complete. Best loss: {best_loss:.4f}")

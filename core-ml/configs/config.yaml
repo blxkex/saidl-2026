@@ -32,6 +32,13 @@ training:
   epochs: 15
   device: "cuda"
 
+wandb:
+  enabled: true        # set true (or override wandb.enabled=true) to log to W&B
+  project: "saidl-transformer"
+  entity: null          # your wandb username/team; null = default
+  name: null            # run name; null = wandb auto-generates
+  mode: "online"        # online | offline | disabled
+
 data:
   dataset_path: "wikitext"
   dataset_name: "wikitext-2-raw-v1"
