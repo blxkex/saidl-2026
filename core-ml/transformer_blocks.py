@@ -1,8 +1,10 @@
+from typing import Literal
+
 import torch as t
 import torch.nn as nn
 import torch.nn.functional as F
 
-from attention_heads import MaskedMultiHeadedAttention
+from attention_heads import FlexibleAttentionBlock, MaskedMultiHeadedAttention
 
 
 class MLP(nn.Module):
@@ -26,16 +28,14 @@ class TransformerBlock(nn.Module):
 
     def __init__(
         self,
-        ctx_len: int,
         dim: int,
-        heads: int = 8,
-        attention: nn.Module = MaskedMultiHeadedAttention,
+        attention: nn.Module,
     ):
         super().__init__()
 
         self.layer_norm1 = nn.LayerNorm(dim)
         self.layer_norm2 = nn.LayerNorm(dim)
-        self.attention = attention(heads, ctx_len, dim)
+        self.attention = attention
 
         self.mlp = MLP(dim)
 
@@ -60,7 +60,6 @@ class TransformerBlock(nn.Module):
 class ConvAttentionBlock(nn.Module):
     def __init__(
         self,
-        heads: int,
         seq_len: int,
         dim: int,
         kernel_size: int,
@@ -132,20 +131,95 @@ class ConvBlock(nn.Module):
 
 
 class ModularTransformer(nn.Module):
-    def __init__(self, ctx_len, dim, heads, n_layers, vocab_size, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    """
+    Modes:
+      - "baseline":    n_layers x TransformerBlock
+      - "hybrid":      n_layers x ConvAttentionBlock (Conv + Attention fused)
+      - "alternating": ConvBlock, TransformerBlock, ConvBlock, ... (n_layers total)
+
+    attention_blocks: list of pre-built attention modules. Caller (training code) builds them.
+        baseline    -> len == n_layers
+        hybrid      -> len == n_layers
+        alternating -> len == n_layers // 2  (one per TransformerBlock at odd indices)
+    conv_cfg:   {"kernel_size": int, "padding": int}. Required for hybrid/alternating.
+    use_abs_pe: learned absolute PE on input. Disable when attention already has RoPE/ALiBi/RPE.
+    """
+
+    def __init__(
+        self,
+        ctx_len: int,
+        dim: int,
+        n_layers: int,
+        vocab_size: int,
+        attention_blocks: list[nn.Module],
+        mode: Literal["baseline", "hybrid", "alternating"] = "baseline",
+        conv_cfg: dict | None = None,
+        use_abs_pe: bool = True,
+    ):
+        super().__init__()
+        assert mode in ("baseline", "hybrid", "alternating"), f"unknown mode {mode}"
+
+        self.mode = mode
+        self.use_abs_pe = use_abs_pe
+
         self.token_emb = nn.Embedding(vocab_size, dim)
-        self.PE = nn.Embedding(ctx_len, dim)  # learned positional embedding
-        self.blocks = nn.ModuleList(
-            [TransformerBlock(ctx_len, dim, heads) for i in range(n_layers)]
-        )
+        if use_abs_pe:
+            self.PE = nn.Embedding(ctx_len, dim)
+
+        if mode == "baseline":
+            assert len(attention_blocks) == n_layers, (
+                f"baseline needs {n_layers} attention blocks, got {len(attention_blocks)}"
+            )
+            self.blocks = nn.ModuleList(
+                [TransformerBlock(dim, attn) for attn in attention_blocks]
+            )
+        elif mode == "hybrid":
+            assert conv_cfg is not None, "hybrid mode needs conv_cfg"
+            assert len(attention_blocks) == n_layers, (
+                f"hybrid needs {n_layers} attention blocks, got {len(attention_blocks)}"
+            )
+            self.blocks = nn.ModuleList(
+                [
+                    ConvAttentionBlock(
+                        seq_len=ctx_len,
+                        dim=dim,
+                        kernel_size=conv_cfg["kernel_size"],
+                        padding=conv_cfg["padding"],
+                        attention_block=attn,
+                    )
+                    for attn in attention_blocks
+                ]
+            )
+        else:  # alternating
+            assert conv_cfg is not None, "alternating mode needs conv_cfg"
+            n_attn = n_layers // 2
+            assert len(attention_blocks) == n_attn, (
+                f"alternating needs {n_attn} attention blocks, got {len(attention_blocks)}"
+            )
+            blocks = []
+            attn_iter = iter(attention_blocks)
+            for i in range(n_layers):
+                if i % 2 == 0:
+                    blocks.append(
+                        ConvBlock(
+                            dim=dim,
+                            kernel_size=conv_cfg["kernel_size"],
+                            padding=conv_cfg["padding"],
+                        )
+                    )
+                else:
+                    blocks.append(TransformerBlock(dim, next(attn_iter)))
+            self.blocks = nn.ModuleList(blocks)
+
         self.ln_final = nn.LayerNorm(dim)
         self.lm_head = nn.Linear(dim, vocab_size)
 
     def forward(self, x):  # x: (B, L) token ids
-        positions = t.arange(x.size(1), device=x.device)
-        x = self.token_emb(x) + self.PE(positions)  # (B, L, dim)
+        h = self.token_emb(x)
+        if self.use_abs_pe:
+            positions = t.arange(x.size(1), device=x.device)
+            h = h + self.PE(positions)
         for block in self.blocks:
-            x = block(x)
-        x = self.ln_final(x)
-        return self.lm_head(x)  # (B, L, vocab_size) raw logits
+            h = block(h)
+        h = self.ln_final(h)
+        return self.lm_head(h)  # (B, L, vocab_size) raw logits

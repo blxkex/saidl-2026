@@ -63,19 +63,31 @@ class RoPE(nn.Module):
         )  # shape = [128, 1]
 
         # converting to e^{i m theta}
-        self.e = t.exp(
-            1j * t.arange(seq_len).unsqueeze(-1) @ self.theta.T
-        )  # shape = [1024, 1] x [1, 128] = [1024, 128].
+        # OLD (wrong): 1j*long arange made a complex tensor that can't matmul float theta.
+        # self.e = t.exp(
+        #     1j * t.arange(seq_len).unsqueeze(-1) @ self.theta.T
+        # )  # shape = [1024, 1] x [1, 128] = [1024, 128].
+        # NEW: matmul stays float; multiply by 1j only after.
+        angles = t.arange(seq_len, dtype=t.float).unsqueeze(-1) @ self.theta.T
 
-        self.e = self.e.unsqueeze(0)  # [1024, 128] -> [1, 1024, 128]
-
-        self.register_buffer("e", self.e)
+        # OLD (wrong): assigning self.e then register_buffer("e", ...) collides —
+        # register_buffer raises KeyError when the name is already an attribute.
+        # self.e = t.exp(1j * angles)  # shape = [1024, 1] x [1, 128] = [1024, 128].
+        # self.e = self.e.unsqueeze(0)  # [1024, 128] -> [1, 1024, 128]
+        # self.register_buffer("e", self.e)
+        # NEW: build into a local, register once as the buffer.
+        e = t.exp(1j * angles)  # shape = [1024, 1] x [1, 128] = [1024, 128].
+        e = e.unsqueeze(0)  # [1024, 128] -> [1, 1024, 128]
+        self.register_buffer("e", e)
 
     def forward(self, xq, xk):
 
         # pairing them up along the embedding dimension: [1, 2, 3, 4] -> [[1, 2], [3, 4]]
         xq_paired = xq.reshape(*xq.shape[:-1], -1, 2)
-        xk_paired = xk.reshape(*xq.shape[:-1], -1, 2)
+        # OLD (wrong): used xq.shape for xk — breaks GQA/MQA where K has fewer heads.
+        # xk_paired = xk.reshape(*xq.shape[:-1], -1, 2)
+        # NEW: reshape xk using its own shape.
+        xk_paired = xk.reshape(*xk.shape[:-1], -1, 2)
 
         # view them as complex: [[1, 2], [3, 4]] -> [[1, 2j], [3, 4j]]
         xq_comp = t.view_as_complex(xq_paired)

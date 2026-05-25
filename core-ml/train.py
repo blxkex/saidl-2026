@@ -1,4 +1,5 @@
 import os
+import time
 
 import torch as t
 import torch.nn as nn
@@ -7,21 +8,8 @@ import torch.nn.functional as F
 import hydra
 from omegaconf import DictConfig, OmegaConf
 
-from rich.live import Live
-from rich.layout import Layout
-from rich.panel import Panel
-from rich.progress import (
-    Progress, 
-    SpinnerColumn, 
-    BarColumn, 
-    TextColumn, 
-    TimeElapsedColumn, 
-    TimeRemainingColumn
-)
-from rich.table import Table
-from rich.align import Align
-from rich.text import Text
-from rich import box
+from tqdm.auto import tqdm
+from torch.utils.tensorboard import SummaryWriter
 
 from positional_embeddings import *
 from attention_heads import *
@@ -29,29 +17,64 @@ from transformer_blocks import *
 from data_preprocess import DataPreprocessor
 
 
-def make_layout() -> Layout:
-    layout = Layout(name="root")
-    
-    layout.split(
-        Layout(name="header", size=3),
-        Layout(name="main", ratio=1),
+# -------------------------------------------------------------
+# Model construction (attention built outside ModularTransformer)
+# -------------------------------------------------------------
+def build_attention(cfg: DictConfig, ctx_len: int, dim: int, heads: int) -> nn.Module:
+    a = cfg.model.attention
+    if a.type == "mha":
+        return MaskedMultiHeadedAttention(heads, ctx_len, dim)
+
+    if a.type != "flexible":
+        raise ValueError(f"unknown attention.type {a.type!r} (use 'mha' or 'flexible')")
+
+    kw = {}
+    if a.variant == "SWA":
+        kw["window_size"] = a.window_size
+    if a.variant == "GQA":
+        kw["groups"] = a.groups
+    if a.pe == "RPE":
+        kw["max_distance"] = a.max_distance
+
+    return FlexibleAttentionBlock(
+        pe=a.pe, variant=a.variant, dim=dim, seq_len=ctx_len, heads=heads, **kw
     )
-    layout["main"].split_row(
-        Layout(name="left_pane", ratio=2),
-        Layout(name="right_pane", ratio=1)
+
+
+def build_model(cfg: DictConfig, vocab_size: int) -> ModularTransformer:
+    ctx_len = cfg.model.context_len
+    dim = cfg.model.embed_dim
+    heads = cfg.model.n_heads
+    n_layers = cfg.model.n_layers
+    mode = cfg.model.mode
+
+    n_attn = n_layers // 2 if mode == "alternating" else n_layers
+    attention_blocks = [
+        build_attention(cfg, ctx_len, dim, heads) for _ in range(n_attn)
+    ]
+
+    conv_cfg = {
+        "kernel_size": cfg.model.conv.kernel_size,
+        "padding": cfg.model.conv.padding,
+    }
+
+    return ModularTransformer(
+        ctx_len=ctx_len,
+        dim=dim,
+        n_layers=n_layers,
+        vocab_size=vocab_size,
+        attention_blocks=attention_blocks,
+        mode=mode,
+        conv_cfg=conv_cfg,
+        use_abs_pe=cfg.model.use_abs_pe,
     )
-    layout["left_pane"].split_column(
-        Layout(name="progress", ratio=1),
-        Layout(name="status", ratio=1)
-    )
-    return layout
 
 
 @hydra.main(version_base=None, config_path="configs", config_name="config")
 def train(cfg: DictConfig):
     # Setup Device
     device = t.device(cfg.training.device if t.cuda.is_available() else "cpu")
-    
+
     # -------------------------------------------------------------
     # Setup Data and Model
     # -------------------------------------------------------------
@@ -64,121 +87,139 @@ def train(cfg: DictConfig):
     train_loader = preprocessor.get_dataloader("train")
     vocab_size = preprocessor.tokenizer.vocab_size
 
-    model = ModularTransformer(
-        ctx_len=cfg.model.context_len,
-        dim=cfg.model.embed_dim,
-        heads=cfg.model.n_heads,
-        n_layers=cfg.model.n_layers,
-        vocab_size=vocab_size,
-    ).to(device)
-
+    model = build_model(cfg, vocab_size).to(device)
     optimizer = t.optim.AdamW(model.parameters(), lr=cfg.training.lr)
-    
+
+    n_params = sum(p.numel() for p in model.parameters())
+
     # -------------------------------------------------------------
-    # Setup Dashboard (Rich TUI)
+    # Logging setup (plain text + TensorBoard)
     # -------------------------------------------------------------
-    layout = make_layout()
-    
-    header_text = Text(f"🚀 Transformer Training Dashboard - Device: {device.type.upper().strip()}", style="bold white on blue", justify="center")
-    layout["header"].update(Panel(header_text, style="black"))
-    
-    progress = Progress(
-        SpinnerColumn(),
-        TextColumn("[bold blue]{task.description}"),
-        BarColumn(bar_width=None),
-        "[progress.percentage]{task.percentage:>3.0f}%",
-        "•",
-        TimeElapsedColumn(),
-        "•",
-        TimeRemainingColumn(),
-        expand=True
+    arch = (
+        f"mode={cfg.model.mode} | attn={cfg.model.attention.type}"
+        f"({cfg.model.attention.pe}/{cfg.model.attention.variant})"
+        if cfg.model.attention.type == "flexible"
+        else f"mode={cfg.model.mode} | attn=mha"
     )
-    
+
     epochs = cfg.training.epochs
-    epoch_task = progress.add_task("[bold green]Total Epochs", total=epochs)
-    batch_task = progress.add_task("[bold cyan]Current Batch", total=len(train_loader))
-    
-    layout["progress"].update(Panel(progress, title="[bold white]Progress[/]", border_style="green", padding=(1, 2)))
-    
-    metrics_table = Table(
-        title="Training History", 
-        box=box.SIMPLE_HEAVY, 
-        expand=True,
-        header_style="bold magenta"
+    grad_accum_steps = max(1, cfg.training.grad_accum_steps)
+    tokens_per_step = cfg.training.batch_size * cfg.model.context_len
+    eff_batch = cfg.training.batch_size * grad_accum_steps
+
+    # TensorBoard logs under <original cwd>/runs so `tensorboard --logdir runs`
+    # (or %tensorboard --logdir runs in a notebook) finds every run.
+    log_dir = os.path.join(hydra.utils.get_original_cwd(), "runs")
+    writer = SummaryWriter(log_dir=log_dir)
+    writer.add_text("config", OmegaConf.to_yaml(cfg))
+
+    print("=" * 70)
+    print(f"Transformer Training — device={device.type.upper()} | {arch}")
+    print(
+        f"dim={cfg.model.embed_dim} heads={cfg.model.n_heads} "
+        f"layers={cfg.model.n_layers} | params={n_params:,}"
     )
-    metrics_table.add_column("Epoch", justify="center")
-    metrics_table.add_column("Avg Loss", justify="center")
-    metrics_table.add_column("Perplexity", justify="center")
-    
-    layout["right_pane"].update(Panel(metrics_table, title="[bold white]Metrics[/]", border_style="magenta"))
-    
-    setup_info = f"Dataset: {cfg.data.dataset_name}\nContext Len: {cfg.model.context_len}  |  Batch Size: {cfg.training.batch_size}\nLR: {cfg.training.lr}\nParameters: {sum(p.numel() for p in model.parameters()):,}"
-    status_text = Text(f"Initializing training for {epochs} epochs...\n\n{setup_info}", style="italic white")
-    layout["status"].update(Panel(Align.center(status_text, vertical="middle"), title="[bold white]System Status[/]", border_style="cyan"))
+    print(
+        f"dataset={cfg.data.dataset_name} | context={cfg.model.context_len} | "
+        f"batch={cfg.training.batch_size} x{grad_accum_steps} = {eff_batch} eff | "
+        f"lr={cfg.training.lr}"
+    )
+    print(f"TensorBoard log_dir: {log_dir}")
+    print("=" * 70)
 
     # -------------------------------------------------------------
     # Training Loop
     # -------------------------------------------------------------
-    with Live(layout, refresh_per_second=10) as live:
-        for epoch in range(epochs):
-            model.train()
-            total_loss = 0.0
-            
-            progress.reset(batch_task, total=len(train_loader), description=f"[bold cyan]Epoch {epoch+1}/{epochs} Batches")
-            status_text = Text(f"Epoch {epoch+1} started. Training on {len(train_loader)} batches...", style="yellow")
-            layout["status"].update(Panel(Align.center(status_text, vertical="middle"), title="[bold white]System Status[/]", border_style="cyan"))
-            
-            for batch_idx, (inputs, labels) in enumerate(train_loader):
-                inputs, labels = inputs.to(device), labels.to(device)
-                
-                optimizer.zero_grad()
-                outputs = model(inputs)
-                
-                # Reshape for loss calculation
-                # ModularTransformer outputs raw logits. We use CrossEntropyLoss.
-                outputs = outputs.view(-1, vocab_size)
-                labels = labels.view(-1)
-                
-                loss = F.cross_entropy(outputs, labels)
-                
-                loss.backward()
+    best_loss = float("inf")
+    global_step = 0
+    n_batches = len(train_loader)
+
+    epoch_bar = tqdm(range(epochs), desc="Epochs", unit="epoch")
+    for epoch in epoch_bar:
+        model.train()
+        total_loss = 0.0
+        epoch_start = time.perf_counter()
+        tokens_seen = 0
+
+        optimizer.zero_grad()
+        batch_bar = tqdm(
+            train_loader,
+            desc=f"Epoch {epoch + 1}/{epochs}",
+            leave=False,
+            unit="batch",
+        )
+        for batch_idx, (inputs, labels) in enumerate(batch_bar):
+            inputs, labels = inputs.to(device), labels.to(device)
+
+            outputs = model(inputs)
+
+            outputs = outputs.view(-1, vocab_size)
+            labels = labels.view(-1)
+
+            loss = F.cross_entropy(outputs, labels)
+
+            # scale so accumulated grads average over the micro-batches
+            (loss / grad_accum_steps).backward()
+
+            # step once per grad_accum_steps micro-batches; flush the tail too
+            if (batch_idx + 1) % grad_accum_steps == 0 or batch_idx + 1 == n_batches:
                 optimizer.step()
-                
-                total_loss += loss.item()
-                
-                # Update progress
-                progress.advance(batch_task)
-                
-                # Update live status frequently
-                if batch_idx % max(1, len(train_loader) // 20) == 0:
-                    current_loss = loss.item()
-                    status_msg = f"Epoch: [bold]{epoch+1}/{epochs}[/]\nBatch: [bold]{batch_idx}/{len(train_loader)}[/]\nCurrent Loss: [bold]{current_loss:.4f}[/]\n\nProcessing smoothly..."
-                    status_text = Text.from_markup(status_msg, style="cyan")
-                    layout["status"].update(Panel(Align.center(status_text, vertical="middle"), title="[bold white]System Status[/]", border_style="cyan"))
-            
-            avg_loss = total_loss / len(train_loader)
-            # Clip perplexity for logging so we don't overflow on poor randomized initializations
-            perplexity = t.exp(t.tensor(min(avg_loss, 20.0))).item()
-            
-            # Log to metrics table
-            metrics_table.add_row(f"{epoch+1}/{epochs}", f"{avg_loss:.4f}", f"{perplexity:.2f}")
-            
-            progress.advance(epoch_task)
-            
-        # Save checkpoint
-        save_dir = os.path.join(hydra.utils.get_original_cwd(), "checkpoints")
-        os.makedirs(save_dir, exist_ok=True)
-        save_path = os.path.join(save_dir, "model.pt")
-        
-        t.save({
+                optimizer.zero_grad()
+
+            total_loss += loss.item()
+            tokens_seen += tokens_per_step
+            global_step += 1
+
+            elapsed = time.perf_counter() - epoch_start
+            tok_s = tokens_seen / elapsed if elapsed > 0 else 0.0
+            run_avg = total_loss / (batch_idx + 1)
+            batch_bar.set_postfix(loss=f"{loss.item():.4f}", avg=f"{run_avg:.4f}")
+
+            writer.add_scalar("train/loss_step", loss.item(), global_step)
+            writer.add_scalar("train/tok_per_s", tok_s, global_step)
+
+        avg_loss = total_loss / n_batches
+        # Clip perplexity for logging so we don't overflow on poor inits
+        perplexity = t.exp(t.tensor(min(avg_loss, 20.0))).item()
+        best_loss = min(best_loss, avg_loss)
+
+        epoch_time = time.perf_counter() - epoch_start
+        epoch_tok_s = tokens_seen / epoch_time if epoch_time > 0 else 0.0
+
+        writer.add_scalar("train/loss_epoch", avg_loss, epoch + 1)
+        writer.add_scalar("train/perplexity", perplexity, epoch + 1)
+        writer.add_scalar("train/epoch_tok_per_s", epoch_tok_s, epoch + 1)
+
+        epoch_bar.set_postfix(loss=f"{avg_loss:.4f}", ppl=f"{perplexity:.2f}")
+        tqdm.write(
+            f"Epoch {epoch + 1:>3}/{epochs} | loss {avg_loss:.4f} | "
+            f"ppl {perplexity:8.2f} | {epoch_tok_s:,.0f} tok/s | "
+            f"best {best_loss:.4f}"
+        )
+
+    # Save checkpoint
+    save_dir = os.path.join(hydra.utils.get_original_cwd(), "checkpoints")
+    os.makedirs(save_dir, exist_ok=True)
+    save_path = os.path.join(save_dir, "model.pt")
+
+    t.save(
+        {
             "model_state_dict": model.state_dict(),
             "optimizer_state_dict": optimizer.state_dict(),
             "config": OmegaConf.to_container(cfg, resolve=True),
             "vocab_size": vocab_size,
-        }, save_path)
-        
-        status_text = Text.from_markup(f"[bold green]✨ Training Complete! ✨[/]\nCheckpoint saved to [bold]{save_path}[/]", style="bold green")
-        layout["status"].update(Panel(Align.center(status_text, vertical="middle"), title="[bold white]System Status[/]", border_style="cyan"))
+        },
+        save_path,
+    )
+
+    writer.close()
+
+    print("=" * 70)
+    print(f"Training complete. Best loss: {best_loss:.4f}")
+    print(f"Checkpoint: {save_path}")
+    print("Generate with: python inference.py --interactive")
+    print("=" * 70)
+
 
 if __name__ == "__main__":
     train()

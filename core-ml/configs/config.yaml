@@ -1,14 +1,35 @@
 model:
   context_len: 1024
-  embed_dim: 128
-  n_heads: 4
-  n_layers: 4
+  embed_dim: 256
+  n_heads: 8
+  n_layers: 6
   dropout: 0.1
+
+  # baseline | hybrid | alternating
+  mode: "baseline"
+  # learned absolute PE on the input embeddings.
+  # keep true for "mha"; set false when flexible attention already injects RoPE/ALiBi/RPE.
+  use_abs_pe: false
+
+  attention:
+    # mha = MaskedMultiHeadedAttention (absolute PE).
+    # flexible = FlexibleAttentionBlock (pe + variant below).
+    type: "flexible"
+    pe: "RoPE"        # RoPE | ALiBi | RPE   (flexible only)
+    variant: "GQA"    # SWA  | MQA   | GQA   (flexible only)
+    window_size: 128  # SWA only
+    max_distance: 128 # RPE only
+    groups: 2         # GQA only
+
+  conv:               # used by hybrid / alternating modes
+    kernel_size: 3
+    padding: 1
 
 training:
   lr: 3e-4
   batch_size: 4
-  epochs: 50
+  grad_accum_steps: 4
+  epochs: 15
   device: "cuda"
 
 data:
