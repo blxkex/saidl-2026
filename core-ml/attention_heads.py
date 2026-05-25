@@ -157,8 +157,13 @@ class FlexibleAttentionBlock(nn.Module):
             self.groups = self.heads
         else:
             # Standard causal mask for MQA / GQA so it doesn't throw an error
+            # WRONG: kept i <= j (upper triangle) => query attends FUTURE keys, lookahead bug.
+            # mask = t.where(
+            #     positions.unsqueeze(1) <= positions.unsqueeze(0), 0.0, float("-inf")
+            # )
+            # query i attends keys j <= i (past + self); lower triangle kept.
             mask = t.where(
-                positions.unsqueeze(1) <= positions.unsqueeze(0), 0.0, float("-inf")
+                positions.unsqueeze(1) >= positions.unsqueeze(0), 0.0, float("-inf")
             )
 
         # Register as a buffer so PyTorch handles moving it to the GPU automatically
