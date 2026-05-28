@@ -119,12 +119,16 @@ class ALiBi(nn.Module):
         slopes = slopes.reshape(heads, 1, 1)
 
         self.register_buffer("alibi_bias", slopes * penals)
+        
+        # Create the causal mask here and register it as a buffer
+        causal_mask = t.triu(
+            t.full((seq_len, seq_len), float("-inf")), diagonal=1
+        )
+        self.register_buffer("causal_mask", causal_mask)
 
     def forward(self, x):
-        causal_mask = t.triu(
-            t.full((self.seq_len, self.seq_len), float("-inf")), diagonal=1
-        )
-        final_attn_mask = self.alibi_bias + causal_mask
+        # Now both buffers are automatically on the same device as the model (CUDA)
+        final_attn_mask = self.alibi_bias + self.causal_mask
 
         return x + final_attn_mask
 
