@@ -12,7 +12,7 @@ run() {
   echo "======================================================================"
   echo ">>> $name"
   echo "======================================================================"
-  python train.py wandb.name="$name" "$@"
+  uv run python train.py wandb.name="$name" "$@"
 }
 
 # Baseline: standard masked multi-head attention with learned absolute PE.
