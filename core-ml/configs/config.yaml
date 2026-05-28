@@ -33,9 +33,9 @@ training:
   device: "cuda"
 
 wandb:
-  enabled: true        # set true (or override wandb.enabled=true) to log to W&B
+  enabled: true        
   project: "saidl-transformer"
-  entity: "bhuvaneshreddy-bits-pilani"          # your wandb username/team; null = default
+  entity: "bhuvaneshreddy-bits-pilani"  
   name: null            # run name; null = wandb auto-generates
   mode: "online"        # online | offline | disabled
 

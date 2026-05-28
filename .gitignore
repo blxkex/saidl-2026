@@ -30,3 +30,6 @@ checkpoints/
 *.lot
 
 uv.lock
+
+.claude/
+dataset/
