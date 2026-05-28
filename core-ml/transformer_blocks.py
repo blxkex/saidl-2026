@@ -57,6 +57,18 @@ class TransformerBlock(nn.Module):
         return x
 
 
+# padding issue fix
+class CausalConv1d(nn.Conv1d):
+    def __init__(self, in_channels, out_channels, kernel_size, **kwargs):
+        kwargs.pop('padding', None) # Force padding to 0
+        super().__init__(in_channels, out_channels, kernel_size, padding=0, **kwargs)
+        self.left_padding = kernel_size - 1
+
+    def forward(self, x):
+        x = F.pad(x, (self.left_padding, 0)) # Pad only the past
+        return super().forward(x)
+        
+
 class ConvAttentionBlock(nn.Module):
     def __init__(
         self,
@@ -68,7 +80,7 @@ class ConvAttentionBlock(nn.Module):
     ):
         super().__init__()
 
-        self.conv1 = nn.Conv1d(dim, dim, kernel_size=kernel_size, padding=padding)
+        self.conv1 = CausalConv1d(dim, dim, kernel_size=kernel_size)
         self.norm1 = nn.LayerNorm(dim)
         self.attn = attention_block
         self.norm2 = nn.LayerNorm(dim)
@@ -104,7 +116,7 @@ class ConvBlock(nn.Module):
     def __init__(self, dim: int, kernel_size: int, padding: int):
         super().__init__()
 
-        self.conv = nn.Conv1d(dim, dim, kernel_size=kernel_size, padding=padding)
+        self.conv = CausalConv1d(dim, dim, kernel_size=kernel_size, padding=padding)
         self.norm1 = nn.LayerNorm(dim)
         self.gelu = nn.GELU()
         self.mlp = MLP(dim)
@@ -121,6 +133,8 @@ class ConvBlock(nn.Module):
         x = self.gelu(x)
 
         x = x + residue
+
+        residue = x
 
         x = self.norm2(x)
         x = self.mlp(x)
