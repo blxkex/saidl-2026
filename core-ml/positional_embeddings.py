@@ -171,8 +171,8 @@ class RPE(nn.Module):
             self.c_dist_cache = self._build(cur_len, x.device)
         c_dist = self.c_dist_cache[:cur_len, :cur_len]
 
-        b: t.Tensor = self.rpe_bias_table(c_dist)  # dim: (L, L, n)
-
-        rpe_bias = b.permute(2, 0, 1).unsqueeze(0)  # dim: (1, n, L, L)
+        # index the (n, buckets) table directly into (n, L, L); avoids the
+        # (L, L, n) intermediate + permute copy -> lower peak memory at large L.
+        rpe_bias = self.rpe_bias_table.weight.t()[:, c_dist].unsqueeze(0)  # (1, n, L, L)
 
         return x + rpe_bias
