@@ -1,0 +1,362 @@
+\documentclass[10pt]{article}
+\usepackage{multicol}
+\input{preamble.sty}
+
+% ─────────────────────────────────────────────────────────────────
+%  CORE PACKAGES
+% ─────────────────────────────────────────────────────────────────
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}                  % default CM-style font, clean at small sizes
+\usepackage{microtype}                % better justification / kerning
+\usepackage[table]{xcolor}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{mathtools}
+\usepackage{bm}                       % bold math (\bm{})
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{booktabs}                 % professional table rules
+\usepackage{array}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{hyperref}
+\usepackage{cleveref}
+\usepackage{enumitem}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{listings}
+\usepackage[skins, breakable, listings]{tcolorbox}
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta,shapes.multipart, calc, fit, backgrounds}
+%% ADD THIS to your preamble (replace any existing tikz library line)
+\usepackage{eso-pic}
+\usetikzlibrary{calc}
+\usepackage{dblfloatfix}
+\usepackage{wrapfig}
+
+% ─────────────────────────────────────────────────────────────────
+%  COLOR SYSTEM  (light / default scientific palette)
+%  Names kept for compatibility; values remapped to white-background mode.
+% ─────────────────────────────────────────────────────────────────
+\definecolor{altbg}{HTML}{FFFFFF}        % page / cell separators
+\definecolor{altbgraised}{HTML}{ECECEC}  % box & cell fill
+\definecolor{altbgdeep}{HTML}{F5F5F5}    % code / definition insides
+\definecolor{alttext}{HTML}{1A1A1A}      % main text (near-black)
+\definecolor{altgrey}{HTML}{595959}      % muted text
+\definecolor{altdg}{HTML}{8A8A8A}        % grey fills / comments
+\definecolor{altborder}{HTML}{444444}    % rules & frames
+\definecolor{altborderh}{HTML}{777777}   % emphasised border
+\definecolor{altdiv}{HTML}{D9D9D9}       % dividers / masked cells
+\definecolor{altshadow}{HTML}{CCCCCC}
+\definecolor{altlb}{HTML}{6E6E6E}        % axis labels
+\definecolor{altgreen}{HTML}{2E7D32}     % saturated accents (links/strokes)
+\definecolor{altblue}{HTML}{1565C0}
+\definecolor{altred}{HTML}{C62828}
+\definecolor{altdkgreen}{HTML}{93C47D}   % light fills (readable under black text)
+\definecolor{altdkblue}{HTML}{6FA8DC}
+\definecolor{altdkred}{HTML}{E06666}
+\definecolor{altrowave}{HTML}{F5F5F5}
+
+% ─────────────────────────────────────────────────────────────────
+%  GEOMETRY & LAYOUT
+% ─────────────────────────────────────────────────────────────────
+\usepackage[
+    top=1in, bottom=1in,
+    left=0.75in, right=0.75in,
+    columnsep=0.25in
+]{geometry}
+
+% ─────────────────────────────────────────────────────────────────
+%  TITLE FORMATTING  (titling + titlesec)
+% ─────────────────────────────────────────────────────────────────
+\usepackage{titling}
+\usepackage{titlesec}
+\setlength{\droptitle}{-3em}
+
+\pretitle{%
+    \begin{center}
+    \large\bfseries\color{alttext}
+}
+\posttitle{%
+    \end{center}
+    \vspace{0.2em}
+    {\color{altborder}\hrule height 0.5pt}
+    \vspace{0.4em}
+}
+\preauthor{%
+    \begin{center}
+    \small\color{altgrey}
+}
+\postauthor{\end{center}}
+\predate{%
+    \begin{center}
+    \small\color{altdg}
+}
+\postdate{\end{center}\vspace{-0.5em}}
+
+% Section headings — formal, slightly muted, ruled
+\titleformat{\section}
+  {\normalfont\normalsize\bfseries\color{alttext}}
+  {\thesection.}{0.5em}{}[{\color{altborder}\titlerule[0.4pt]}]
+
+\titleformat{\subsection}
+  {\normalfont\small\bfseries\color{alttext}}
+  {\thesubsection}{0.5em}{}
+
+\titleformat{\subsubsection}
+  {\normalfont\small\itshape\color{alttext}}
+  {\thesubsubsection}{0.5em}{}
+
+\titlespacing{\section}{0pt}{1.2ex plus .2ex}{0.8ex plus .1ex}
+\titlespacing{\subsection}{0pt}{1ex plus .2ex}{0.5ex plus .1ex}
+
+% Toggle section underline rule on/off (rule clashes with floated diagram)
+\newcommand{\sectionnorule}{%
+  \titleformat{\section}
+    {\normalfont\normalsize\bfseries\color{alttext}}
+    {\thesection.}{0.5em}{}}
+\newcommand{\sectionrule}{%
+  \titleformat{\section}
+    {\normalfont\normalsize\bfseries\color{alttext}}
+    {\thesection.}{0.5em}{}[{\color{altborder}\titlerule[0.4pt]}]}
+
+% ─────────────────────────────────────────────────────────────────
+%  CAPTION STYLING
+% ─────────────────────────────────────────────────────────────────
+\captionsetup{
+    font={small, color=alttext},
+    labelfont={bf, color=alttext},
+    labelsep=period
+}
+
+% ─────────────────────────────────────────────────────────────────
+%  HYPERREF COLORS
+% ─────────────────────────────────────────────────────────────────
+\hypersetup{
+    colorlinks=true,
+    linkcolor=altblue,
+    citecolor=altgreen,
+    urlcolor=altblue,
+    pdftitle={Implementing the Transformer: Attention Mechanisms and Training Dynamics},
+    pdfauthor={Blxke}
+}
+
+% ─────────────────────────────────────────────────────────────────
+%  LISTINGS  (inline code blocks)
+% ─────────────────────────────────────────────────────────────────
+\lstdefinestyle{altpython}{
+    language=Python,
+    basicstyle=\ttfamily\scriptsize\color{alttext},
+    keywordstyle=\color{altblue},
+    stringstyle=\color{altgreen},
+    commentstyle=\color{altdg},
+    numberstyle=\tiny\color{altdg},
+    numbers=left,
+    stepnumber=1,
+    numbersep=5pt,
+    backgroundcolor=\color{altbgdeep},
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=4,
+    breaklines=true,
+    frame=none,
+    xleftmargin=1em,
+    xrightmargin=0.5em,
+}
+
+% ─────────────────────────────────────────────────────────────────
+%  TCOLORBOX ENVIRONMENTS
+% ─────────────────────────────────────────────────────────────────
+\AtBeginEnvironment{tcolorbox}{\small}
+
+%% ── Definition box (--blue accent) ────────────────────────────
+\newtcolorbox{defn}[1][]{%
+    enhanced,
+    breakable,
+    colback=altbgdeep,
+    colframe=altdkblue,
+    coltext=alttext,
+    coltitle=alttext,
+    fonttitle=\bfseries\small,
+    title={Definition\ifx&#1&\else\ --- #1\fi},
+    arc=0pt, outer arc=0pt,
+    leftrule=3pt, rightrule=0.4pt,
+    toprule=0.4pt, bottomrule=0.4pt,
+    boxsep=4pt, left=4pt, right=4pt,
+    top=3pt, bottom=3pt,
+    sharp corners
+}
+
+%% ── Theorem / Proposition box (--green accent) ────────────────
+\newtcolorbox{thm}[1][]{%
+    enhanced,
+    breakable,
+    colback=altbgdeep,
+    colframe=altdkgreen,
+    coltext=alttext,
+    coltitle=alttext,
+    fonttitle=\bfseries\small,
+    title={Theorem\ifx&#1&\else\ --- #1\fi},
+    arc=0pt, outer arc=0pt,
+    leftrule=3pt, rightrule=0.4pt,
+    toprule=0.4pt, bottomrule=0.4pt,
+    boxsep=4pt, left=4pt, right=4pt,
+    top=3pt, bottom=3pt,
+    sharp corners
+}
+
+%% ── Remark / Note (neutral, --border frame) ───────────────────
+\newtcolorbox{remark}[1][]{%
+    enhanced,
+    breakable,
+    colback=altbgdeep,
+    colframe=altborder,
+    colbacktitle=altdiv,
+    coltext=alttext,
+    coltitle=alttext,
+    fonttitle=\small\bfseries\itshape,
+    title={Remark\ifx&#1&\else: #1\fi},
+    arc=0pt, outer arc=0pt,
+    boxrule=0.6pt,
+    boxsep=4pt, left=4pt, right=4pt,
+    top=3pt, bottom=3pt,
+    sharp corners
+}
+
+%% ── Important / Warning (--red accent) ────────────────────────
+\newtcolorbox{important}[1][]{%
+    enhanced,
+    breakable,
+    colback=altbgdeep,
+    colframe=altdkred,
+    coltext=alttext,
+    coltitle=alttext,
+    fonttitle=\bfseries\small,
+    title={Important\ifx&#1&\else\ --- #1\fi},
+    arc=0pt, outer arc=0pt,
+    leftrule=3pt, rightrule=0.4pt,
+    toprule=0.4pt, bottomrule=0.4pt,
+    boxsep=4pt, left=4pt, right=4pt,
+    top=3pt, bottom=3pt,
+    sharp corners
+}
+
+%% ── Code block wrapper ─────────────────────────────────────────
+\newtcblisting{codebox}[1][Python]{%
+    enhanced,
+    breakable,
+    colback=altbgdeep,
+    colframe=altborder,
+    coltext=alttext,
+    coltitle=altgrey,
+    fonttitle=\ttfamily\scriptsize,
+    title={#1},
+    arc=0pt, outer arc=0pt,
+    boxrule=0.4pt,
+    boxsep=3pt, left=2pt, right=2pt,
+    top=2pt, bottom=2pt,
+    sharp corners,
+    listing only,
+    listing options={style=altpython}
+}
+
+%% ── Equation context box (numbered, titled) ───────────────────
+\newtcolorbox{eqbox}[1][]{%
+    enhanced,
+    colback=altbgraised,
+    colframe=altdiv,
+    coltext=alttext,
+    arc=0pt, outer arc=0pt,
+    boxrule=0.4pt,
+    boxsep=4pt, left=6pt, right=6pt,
+    top=4pt, bottom=4pt,
+    sharp corners,
+    IfValueT={#1}{\tcbtitle={#1}}
+}
+
+% ─────────────────────────────────────────────────────────────────
+%  MATH THEOREM ENVIRONMENTS  (unnumbered, use tcolorbox wrappers)
+% ─────────────────────────────────────────────────────────────────
+\theoremstyle{plain}
+\newtheorem{proposition}{Proposition}
+\newtheorem{lemma}{Lemma}
+
+% ─────────────────────────────────────────────────────────────────
+%  COMMANDS
+% ─────────────────────────────────────────────────────────────────
+\newcommand{\bb}[1]{\textbf{#1}}
+\newcommand{\muted}[1]{\textcolor{altgrey}{#1}}
+\newcommand{\acc}[1]{\textcolor{altblue}{#1}}
+\newcommand{\code}[1]{\texttt{\textcolor{altgrey}{#1}}}
+
+% Math shorthands
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\softmax}{\operatorname{softmax}}
+\newcommand{\LayerNorm}{\operatorname{LayerNorm}}
+\newcommand{\Attn}{\operatorname{Attention}}
+\newcommand{\MHA}{\operatorname{MHA}}
+
+% ─────────────────────────────────────────────────────────────────
+%  GLOBAL SPACING
+% ─────────────────────────────────────────────────────────────────
+\setlength{\parskip}{0.55em}
+\setlength{\parindent}{0pt}
+\setlength{\jot}{0.55em}                     % gap inside align
+\setlength{\abovedisplayskip}{0.9em plus 2pt minus 2pt}
+\setlength{\belowdisplayskip}{0.9em plus 2pt minus 2pt}
+\setlength{\abovedisplayshortskip}{0.7em plus 2pt}
+\setlength{\belowdisplayshortskip}{0.7em plus 2pt}
+\linespread{1.08}
+
+\titlespacing*{\section}{0pt}{1.6ex plus .3ex}{1.0ex plus .2ex}
+\titlespacing*{\subsection}{0pt}{1.3ex plus .2ex}{0.7ex plus .1ex}
+\titlespacing*{\subsubsection}{0pt}{1.0ex plus .2ex}{0.5ex plus .1ex}
+
+\captionsetup{skip=0.6em}
+
+% ─────────────────────────────────────────────────────────────────
+%  DOCUMENT METADATA
+% ─────────────────────────────────────────────────────────────────
+\title{%
+    Diffusion: Implementing a Diffusion Transformer for Image Generation \\
+}
+\author{%
+    Bhuvanesh Reddy
+}
+\date{\small\muted{\today}}
+
+% ════════════════════════════════════════════════════════════════
+\begin{document}
+% ════════════════════════════════════════════════════════════════
+
+\maketitle
+\thispagestyle{empty}
+
+% ─────────────────────────────────────────────────────────────────
+%  ABSTRACT
+% ─────────────────────────────────────────────────────────────────
+\begin{tcolorbox}[
+    enhanced,
+    colback=altbgraised,
+    colframe=altborder,
+    coltext=alttext,
+    arc=0pt, outer arc=0pt,
+    boxrule=0.5pt,
+    sharp corners,
+    left=6pt, right=6pt, top=5pt, bottom=5pt,
+    before upper={\textbf{\small Abstract.}\hspace{0.5em}}
+]
+\small
+Diffusion hehehe
+\end{tcolorbox}
+
+\vspace{0.5em}
+
+% ─────────────────────────────────────────────────────────────────
+
+\section{Introduction.}
+
+
+
+\end{document}

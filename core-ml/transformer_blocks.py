@@ -57,7 +57,7 @@ class TransformerBlock(nn.Module):
         return x
 
 
-# padding issue fix
+# padding issue fix (to prevent information leak from future tokens).
 class CausalConv1d(nn.Conv1d):
     def __init__(self, in_channels, out_channels, kernel_size, **kwargs):
         kwargs.pop('padding', None) # Force padding to 0

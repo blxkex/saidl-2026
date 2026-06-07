@@ -33,3 +33,7 @@ uv.lock
 
 .claude/
 dataset/
+
+latent_cache.pt
+CHANGES.md
+wandb/

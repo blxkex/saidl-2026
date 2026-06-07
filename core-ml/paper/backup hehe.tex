@@ -1,199 +1,1208 @@
-\section{Introduction}
+\documentclass[10pt]{article}
+\usepackage{multicol}
+\input{preamble.sty}
+
+% ─────────────────────────────────────────────────────────────────
+%  CORE PACKAGES
+% ─────────────────────────────────────────────────────────────────
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}                  % default CM-style font, clean at small sizes
+\usepackage{microtype}                % better justification / kerning
+\usepackage[table]{xcolor}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{mathtools}
+\usepackage{bm}                       % bold math (\bm{})
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{booktabs}                 % professional table rules
+\usepackage{array}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{hyperref}
+\usepackage{cleveref}
+\usepackage{enumitem}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{listings}
+\usepackage[skins, breakable, listings]{tcolorbox}
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta,shapes.multipart, calc, fit, backgrounds}
+%% ADD THIS to your preamble (replace any existing tikz library line)
+\usepackage{eso-pic}
+\usetikzlibrary{calc}
+\usepackage{dblfloatfix}
+\usepackage{wrapfig}
+
+% ─────────────────────────────────────────────────────────────────
+%  ALTED. COLOR SYSTEM
+% ─────────────────────────────────────────────────────────────────
+\definecolor{altbg}{HTML}{222222}
+\definecolor{altbgraised}{HTML}{2A2A28}
+\definecolor{altbgdeep}{HTML}{1A1A18}
+\definecolor{alttext}{HTML}{E4E4E4}
+\definecolor{altgrey}{HTML}{9E9E9E}
+\definecolor{altdg}{HTML}{525252}
+\definecolor{altborder}{HTML}{444444}
+\definecolor{altborderh}{HTML}{666666}
+\definecolor{altdiv}{HTML}{333333}
+\definecolor{altshadow}{HTML}{111111}
+\definecolor{altlb}{HTML}{888888}
+\definecolor{altgreen}{HTML}{6E9A73}
+\definecolor{altblue}{HTML}{5F87A1}
+\definecolor{altred}{HTML}{A85C5C}
+\definecolor{altdkgreen}{HTML}{3A6342}
+\definecolor{altdkblue}{HTML}{2D5A7A}
+\definecolor{altdkred}{HTML}{8A3535}
+\definecolor{altrowave}{HTML}{252523}
+
+% ─────────────────────────────────────────────────────────────────
+%  PAGE COLOR & TEXT COLOR
+% ─────────────────────────────────────────────────────────────────
+\pagecolor{altbg}
+\color{alttext}
+
+% ─────────────────────────────────────────────────────────────────
+%  BACKGROUND GRID  (very subtle — --div at hairline weight)
+% ─────────────────────────────────────────────────────────────────
+\AddToShipoutPictureBG{%
+  \begin{tikzpicture}[remember picture, overlay,
+    help lines/.append style={line width=0.035pt, color=altdiv}]
+    \draw[help lines] (current page.south west) grid[step=5pt]
+                      (current page.north east);
+  \end{tikzpicture}%
+}
+
+% ─────────────────────────────────────────────────────────────────
+%  GEOMETRY & LAYOUT
+% ─────────────────────────────────────────────────────────────────
+\usepackage[
+    top=1in, bottom=1in,
+    left=0.75in, right=0.75in,
+    columnsep=0.25in
+]{geometry}
+
+% ─────────────────────────────────────────────────────────────────
+%  TITLE FORMATTING  (titling + titlesec)
+% ─────────────────────────────────────────────────────────────────
+\usepackage{titling}
+\usepackage{titlesec}
+\setlength{\droptitle}{-3em}
+
+\pretitle{%
+    \begin{center}
+    \large\bfseries\color{alttext}
+}
+\posttitle{%
+    \end{center}
+    \vspace{0.2em}
+    {\color{altborder}\hrule height 0.5pt}
+    \vspace{0.4em}
+}
+\preauthor{%
+    \begin{center}
+    \small\color{altgrey}
+}
+\postauthor{\end{center}}
+\predate{%
+    \begin{center}
+    \small\color{altdg}
+}
+\postdate{\end{center}\vspace{-0.5em}}
+
+% Section headings — formal, slightly muted, ruled
+\titleformat{\section}
+  {\normalfont\normalsize\bfseries\color{alttext}}
+  {\thesection.}{0.5em}{}[{\color{altborder}\titlerule[0.4pt]}]
+
+\titleformat{\subsection}
+  {\normalfont\small\bfseries\color{alttext}}
+  {\thesubsection}{0.5em}{}
+
+\titleformat{\subsubsection}
+  {\normalfont\small\itshape\color{alttext}}
+  {\thesubsubsection}{0.5em}{}
+
+\titlespacing{\section}{0pt}{1.2ex plus .2ex}{0.8ex plus .1ex}
+\titlespacing{\subsection}{0pt}{1ex plus .2ex}{0.5ex plus .1ex}
+
+% ─────────────────────────────────────────────────────────────────
+%  CAPTION STYLING
+% ─────────────────────────────────────────────────────────────────
+\captionsetup{
+    font={small, color=alttext},
+    labelfont={bf, color=alttext},
+    labelsep=period
+}
+
+% ─────────────────────────────────────────────────────────────────
+%  HYPERREF COLORS
+% ─────────────────────────────────────────────────────────────────
+\hypersetup{
+    colorlinks=true,
+    linkcolor=altblue,
+    citecolor=altgreen,
+    urlcolor=altblue,
+    pdftitle={Implementing the Transformer: Attention Mechanisms and Training Dynamics},
+    pdfauthor={Blxke}
+}
+
+% ─────────────────────────────────────────────────────────────────
+%  LISTINGS  (inline code blocks)
+% ─────────────────────────────────────────────────────────────────
+\lstdefinestyle{altpython}{
+    language=Python,
+    basicstyle=\ttfamily\scriptsize\color{alttext},
+    keywordstyle=\color{altblue},
+    stringstyle=\color{altgreen},
+    commentstyle=\color{altdg},
+    numberstyle=\tiny\color{altdg},
+    numbers=left,
+    stepnumber=1,
+    numbersep=5pt,
+    backgroundcolor=\color{altbgdeep},
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=4,
+    breaklines=true,
+    frame=none,
+    xleftmargin=1em,
+    xrightmargin=0.5em,
+}
+
+% ─────────────────────────────────────────────────────────────────
+%  TCOLORBOX ENVIRONMENTS
+% ─────────────────────────────────────────────────────────────────
+\AtBeginEnvironment{tcolorbox}{\small}
+
+%% ── Definition box (--blue accent) ────────────────────────────
+\newtcolorbox{defn}[1][]{%
+    enhanced,
+    breakable,
+    colback=altbgdeep,
+    colframe=altdkblue,
+    coltext=alttext,
+    coltitle=alttext,
+    fonttitle=\bfseries\small,
+    title={Definition\ifx&#1&\else\ --- #1\fi},
+    arc=0pt, outer arc=0pt,
+    leftrule=3pt, rightrule=0.4pt,
+    toprule=0.4pt, bottomrule=0.4pt,
+    boxsep=4pt, left=4pt, right=4pt,
+    top=3pt, bottom=3pt,
+    sharp corners
+}
+
+%% ── Theorem / Proposition box (--green accent) ────────────────
+\newtcolorbox{thm}[1][]{%
+    enhanced,
+    breakable,
+    colback=altbgdeep,
+    colframe=altdkgreen,
+    coltext=alttext,
+    coltitle=alttext,
+    fonttitle=\bfseries\small,
+    title={Theorem\ifx&#1&\else\ --- #1\fi},
+    arc=0pt, outer arc=0pt,
+    leftrule=3pt, rightrule=0.4pt,
+    toprule=0.4pt, bottomrule=0.4pt,
+    boxsep=4pt, left=4pt, right=4pt,
+    top=3pt, bottom=3pt,
+    sharp corners
+}
+
+%% ── Remark / Note (neutral, --border frame) ───────────────────
+\newtcolorbox{remark}[1][]{%
+    enhanced,
+    breakable,
+    colback=altbgraised,
+    colframe=altborder,
+    coltext=alttext,
+    coltitle=altgrey,
+    fonttitle=\small\itshape,
+    title={Remark\ifx&#1&\else: #1\fi},
+    arc=0pt, outer arc=0pt,
+    boxrule=0.4pt,
+    boxsep=4pt, left=4pt, right=4pt,
+    top=3pt, bottom=3pt,
+    sharp corners
+}
+
+%% ── Important / Warning (--red accent) ────────────────────────
+\newtcolorbox{important}[1][]{%
+    enhanced,
+    breakable,
+    colback=altbgdeep,
+    colframe=altdkred,
+    coltext=alttext,
+    coltitle=alttext,
+    fonttitle=\bfseries\small,
+    title={Important\ifx&#1&\else\ --- #1\fi},
+    arc=0pt, outer arc=0pt,
+    leftrule=3pt, rightrule=0.4pt,
+    toprule=0.4pt, bottomrule=0.4pt,
+    boxsep=4pt, left=4pt, right=4pt,
+    top=3pt, bottom=3pt,
+    sharp corners
+}
+
+%% ── Code block wrapper ─────────────────────────────────────────
+\newtcblisting{codebox}[1][Python]{%
+    enhanced,
+    breakable,
+    colback=altbgdeep,
+    colframe=altborder,
+    coltext=alttext,
+    coltitle=altgrey,
+    fonttitle=\ttfamily\scriptsize,
+    title={#1},
+    arc=0pt, outer arc=0pt,
+    boxrule=0.4pt,
+    boxsep=3pt, left=2pt, right=2pt,
+    top=2pt, bottom=2pt,
+    sharp corners,
+    listing only,
+    listing options={style=altpython}
+}
+
+%% ── Equation context box (numbered, titled) ───────────────────
+\newtcolorbox{eqbox}[1][]{%
+    enhanced,
+    colback=altbgraised,
+    colframe=altdiv,
+    coltext=alttext,
+    arc=0pt, outer arc=0pt,
+    boxrule=0.4pt,
+    boxsep=4pt, left=6pt, right=6pt,
+    top=4pt, bottom=4pt,
+    sharp corners,
+    IfValueT={#1}{\tcbtitle={#1}}
+}
+
+% ─────────────────────────────────────────────────────────────────
+%  MATH THEOREM ENVIRONMENTS  (unnumbered, use tcolorbox wrappers)
+% ─────────────────────────────────────────────────────────────────
+\theoremstyle{plain}
+\newtheorem{proposition}{Proposition}
+\newtheorem{lemma}{Lemma}
+
+% ─────────────────────────────────────────────────────────────────
+%  COMMANDS
+% ─────────────────────────────────────────────────────────────────
+\newcommand{\bb}[1]{\textbf{#1}}
+\newcommand{\muted}[1]{\textcolor{altgrey}{#1}}
+\newcommand{\acc}[1]{\textcolor{altblue}{#1}}
+\newcommand{\code}[1]{\texttt{\textcolor{altgrey}{#1}}}
+
+% Math shorthands
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\softmax}{\operatorname{softmax}}
+\newcommand{\LayerNorm}{\operatorname{LayerNorm}}
+\newcommand{\Attn}{\operatorname{Attention}}
+\newcommand{\MHA}{\operatorname{MHA}}
+
+% ─────────────────────────────────────────────────────────────────
+%  GLOBAL SPACING
+% ─────────────────────────────────────────────────────────────────
+\setlength{\parskip}{0.55em}
+\setlength{\parindent}{0pt}
+\setlength{\jot}{0.55em}                     % gap inside align
+\setlength{\abovedisplayskip}{0.9em plus 2pt minus 2pt}
+\setlength{\belowdisplayskip}{0.9em plus 2pt minus 2pt}
+\setlength{\abovedisplayshortskip}{0.7em plus 2pt}
+\setlength{\belowdisplayshortskip}{0.7em plus 2pt}
+\linespread{1.08}
+
+\titlespacing*{\section}{0pt}{1.6ex plus .3ex}{1.0ex plus .2ex}
+\titlespacing*{\subsection}{0pt}{1.3ex plus .2ex}{0.7ex plus .1ex}
+\titlespacing*{\subsubsection}{0pt}{1.0ex plus .2ex}{0.5ex plus .1ex}
+
+\captionsetup{skip=0.6em}
+
+% ─────────────────────────────────────────────────────────────────
+%  DOCUMENT METADATA
+% ─────────────────────────────────────────────────────────────────
+\title{%
+    CoreML: Implementing the Transformer and the Variations.
+}
+\author{%
+    Bhuvanesh Reddy
+}
+\date{\small\muted{\today}}
+
+% ════════════════════════════════════════════════════════════════
+\begin{document}
+% ════════════════════════════════════════════════════════════════
+
+\maketitle
+\thispagestyle{empty}
+
+% ─────────────────────────────────────────────────────────────────
+%  ABSTRACT
+% ─────────────────────────────────────────────────────────────────
+\begin{tcolorbox}[
+    enhanced,
+    colback=altbgraised,
+    colframe=altborder,
+    coltext=alttext,
+    arc=0pt, outer arc=0pt,
+    boxrule=0.5pt,
+    sharp corners,
+    left=6pt, right=6pt, top=5pt, bottom=5pt,
+    before upper={\textbf{\small Abstract.}\hspace{0.5em}}
+]
+\small
+I present a from-scratch implementation of the Baseline Transformer architecture along with exploring variants in the positional encoding alongside Absolute Positional Encoding such as Relative Positional Encoding, Rotary Positional Encoding and ALiBi. I also explore variations in the attention mechanism such as Multi-Query Attention, Grouped-Query Attention and Softmax-Free attention. Moreover, I have also done Attention + Convolution hybrids, covering the different ways of integrating convolution into the attention architecture. Finally I have logged the training dynamics of all the models and compared them against each other and analyzed the results and picked the best performing combination. 
+\end{tcolorbox}
+
+\vspace{0.5em}
+
 % ─────────────────────────────────────────────────────────────────
 
-The Transformer \cite{vaswani2017attention} discards recurrence entirely,
-relying solely on attention mechanisms to model dependencies between positions.
-This section motivates the architecture and outlines the contributions of this
-assignment.
+\section{Introduction.}
 
-\begin{defn}[Scaled Dot-Product Attention]
-Given queries $\bm{Q} \in \R^{n \times d_k}$, keys $\bm{K} \in \R^{m \times d_k}$,
-and values $\bm{V} \in \R^{m \times d_v}$, attention is defined as
-\begin{equation}
-    \Attn(\bm{Q}, \bm{K}, \bm{V}) =
-        \softmax\!\left(\frac{\bm{Q}\bm{K}^\top}{\sqrt{d_k}}\right)\bm{V}.
-    \label{eq:attention}
-\end{equation}
+\begin{wrapfigure}{r}{0.38\textwidth}
+  \vspace{-0.6em}
+  \centering
+  \resizebox{0.36\textwidth}{!}{%
+    \begin{tikzpicture}[
+        node distance = 0.22cm,
+        box/.style = {
+            rectangle, rounded corners=2pt,
+            draw=altborder, line width=0.55pt,
+            text=alttext, font=\scriptsize,
+            minimum width=2.6cm, minimum height=0.38cm,
+            align=center
+        },
+        attn/.style    = {box, fill=altdkblue,  draw=altblue},
+        addnorm/.style = {box, fill=altdg,      minimum height=0.32cm},
+        ffn/.style     = {box, fill=altdkgreen, draw=altgreen},
+        embed/.style   = {box, fill=altdiv,     minimum height=0.32cm},
+        outbox/.style  = {box, fill=altdkred,   draw=altred},
+        arr/.style     = {->, >=Stealth, line width=0.5pt, draw=altgrey},
+        skip/.style    = {->, >=Stealth, line width=0.4pt, draw=altdg},
+    ]
+
+    \node[embed]                         (inp) {Input Tokens};
+    \node[embed,   above=of inp]         (emb) {$+$\;Pos.\ Encoding};
+    \node[attn,    above=0.45cm of emb]  (mha) {Masked Multi-Head Attention};
+    \node[addnorm, above=of mha]         (ln1) {Add \& Norm};
+    \node[ffn,     above=of ln1]         (ffn) {Feed-Forward Network};
+    \node[addnorm, above=of ffn]         (ln2) {Add \& Norm};
+    \node[outbox,  above=0.45cm of ln2]  (lin) {Linear};
+    \node[outbox,  above=of lin]         (sfx) {Softmax};
+    \node[embed,   above=of sfx]         (out) {Output Probabilities};
+
+    \coordinate (br1) at ($(emb.north)!0.5!(mha.south)$);
+    \coordinate (br2) at ($(ln1.north)!0.5!(ffn.south)$);
+
+    \begin{pgfonlayer}{background}
+      \node[draw=altborderh, dashed, rounded corners=4pt,
+            line width=0.65pt, fill=altrowave,
+            fit=(mha)(ln2), inner sep=6pt] (blk) {};
+    \end{pgfonlayer}
+
+    \node[font=\scriptsize\itshape, text=altlb]
+      at (blk.east) [right=2pt] {$\times N$};
+
+    \foreach \from/\to in {inp/emb, emb/mha, mha/ln1,
+                           ln1/ffn, ffn/ln2, ln2/lin,
+                           lin/sfx, sfx/out}
+      \draw[arr] (\from) -- (\to);
+
+    \draw[skip] (br1) -- ++(1.55,0) |- (ln1.east);
+    \draw[skip] (br2) -- ++(1.85,0) |- (ln2.east);
+
+    \fill[altgrey!70] (br1) circle (1.2pt);
+    \fill[altgrey!70] (br2) circle (1.2pt);
+
+    \end{tikzpicture}%
+  }
+  \caption{Decoder-only Transformer. Dashed block stacked $N$ times.}
+  \label{fig:decoder-transformer}
+  \vspace{-0.4em}
+\end{wrapfigure}
+
+The Transformer architecture has revolutionalized natural language processing. Unlike traditional RNN-based models, the Transformer uses \emph{self-attention} mechanisms to capture relationships between tokens in a sequence. It has been done in a way to maximize parallelization, allowing for much efficient training on large datasets. The original Transformer architecture consists of an encoder-decoder structure, where both the encoder and decoder are composed of multiple layers of multi-head self-attention and feed-forward networks. The encoder processes the input sequence, while the decoder generates the output sequence one token at a time, attending to both the encoder's output and its own previous outputs. But I have implemented a decoder-only architecture in this assignment, which is commonly used for language modelling tasks. 
+
+\section{Architecture. (Baseline)}
+
+\subsection{Self-Attention Mechanism.}
+
+Given, Queries \(\mathbf{Q} \in \mathbb{R}^{L \times d_k}\), Keys \(\mathbf{K} \in \mathbb{R}^{L \times d_k}\), and Values \(\mathbf{V} \in \mathbb{R}^{L \times d_k}\), which are linear projections of input \(\mathbf{X} \in \mathbb{R}^{L \times d_{\text{model}}}\), the attention weights are computed as: 
+
+\[
+    \text{Self Attention} (\mathbf{Q}, \mathbf{K}, \mathbf{V}) = \softmax(\frac{\mathbf{Q} \mathbf{K} ^T}{\sqrt{d_{k} } }) \mathbf{V}
+\]
+
+\begin{defn}[Multi-Head Attention.]
+    In Multi-Head Attention, we have \(h\) parallel attention heads, each with its own set of learned linear projections for queries, keys, and values. The dimensions of the projections are such that, 
+    \[
+        d_k = \frac{d_{\text{model}}}{h}
+    \]
+
+    Each head computes attention independently, and their outputs are concatenated and go through another linear projection, \(\mathbf{W}^O \in \mathbb{R}^{ d_{\text{model}} \times d_{\text{model}}}\). Formally, the multi-head attention can be expressed as:
+    \[
+    \mathrm{MHA} (\mathbf{Q}, \mathbf{K}, \mathbf{V}) = \text{Concat}(\text{head}_1, \ldots, \text{head}_h) \mathbf{W}^O
+    \]
+
+    where \(\text{head}_i = \Attn(\mathbf{Q}_i, \mathbf{K}_{i}, \mathbf{V}_{i})\).
+
 \end{defn}
 
-The $\sqrt{d_k}$ scaling prevents the dot products from entering saturation
-regions of the softmax when $d_k$ is large.
+\begin{remark}[Masking.]
+    In the attention weight matrix, we apply a mask to prevent positions from attenting to subsequent tokens, ensuring that the prediction for position \(i\) can only depend on the known outputs at positions less than \(i\). This is typically implemented by adding a large negative value (e.g., \(-\infty\)) to the masked positions before applying the softmax function, effectively setting their attention weights to zero.
 
-% ─────────────────────────────────────────────────────────────────
-\section{Architecture}
-% ─────────────────────────────────────────────────────────────────
+\[
+    \text{Mask} = \begin{cases}
+        0 & \text{if } j \leq i \\
+        -\infty & \text{if } j > i
+    \end{cases}
+\]
 
-\subsection{Multi-Head Attention}
-
-Rather than computing a single attention function, the model projects $\bm{Q}$,
-$\bm{K}$, $\bm{V}$ $h$ times with learned linear projections, attends in
-parallel, then concatenates:
-
-\begin{eqbox}
-\begin{equation}
-    \MHA(\bm{Q},\bm{K},\bm{V}) =
-        \operatorname{Concat}(\text{head}_1, \ldots, \text{head}_h)\,\bm{W}^O
-    \label{eq:mha}
-\end{equation}
-\end{eqbox}
-
-where $\text{head}_i = \Attn(\bm{Q}\bm{W}_i^Q,\, \bm{K}\bm{W}_i^K,\,
-\bm{V}\bm{W}_i^V)$.
-
-\begin{thm}[Expressivity of MHA]
-Multi-head attention with $h$ heads and $d_{\text{model}} = h\,d_k$ parameters
-is strictly more expressive than single-head attention with the same parameter
-budget, as each head can attend to a distinct subspace of the representation.
-\end{thm}
-
-\subsection{Position-wise Feed-Forward Network}
-
-Each encoder/decoder layer includes a two-layer FFN applied identically to
-each position:
-\begin{equation}
-    \operatorname{FFN}(\bm{x}) = \max(0,\, \bm{x}\bm{W}_1 + \bm{b}_1)\bm{W}_2 + \bm{b}_2
-\end{equation}
-
-\begin{remark}[Dimensionality]
-The inner dimension is typically $d_{ff} = 4\,d_{\text{model}}$.
-In the base model \cite{vaswani2017attention}, $d_{\text{model}} = 512$
-and $d_{ff} = 2048$.
 \end{remark}
 
-\subsection{Positional Encoding}
+\subsection{Positional Encoding.}
 
-Since attention is permutation-equivariant, position information must be
-injected explicitly. Sinusoidal encodings are given by:
-\begin{align}
-    \text{PE}_{(pos,\,2i)}   &= \sin\!\left(pos / 10000^{2i/d}\right) \\
-    \text{PE}_{(pos,\,2i+1)} &= \cos\!\left(pos / 10000^{2i/d}\right)
-\end{align}
+Since the self-attention mechanism is position invariant, we need to inject some information about the positioning of tokens in the sequences. The original Transformer paper uses \emph{absolute positional encoding} (AbsPE) which adds a fixed sinusoidal encoding to the input embeddings. For a position \(pos\) and dimension \(i\), the positional encoding is defined as:
+\[
+    \mathbf{PE} (\text{pos}, 2i) = \sin\left(\frac{\text{pos}}{10000^{2i/d_{\text{model}}}}\right)
+\]
+\[
+    \mathbf{PE} (\text{pos}, 2i+1) = \cos\left(\frac{\text{pos}}{10000^{2i/d_{\text{model}}}}\right)
+\]
 
-\begin{important}[Learned vs.\ Sinusoidal]
-Learned positional embeddings and sinusoidal encodings achieve comparable
-performance; however, sinusoidal encodings generalise to sequence lengths
-unseen during training.
+\begin{important}[Implication of the Notation.]
+    The \(2i\) and \(2i+1\) indices indicate that the positional encoding alternates between sine and cosine functions across the dimensions of the embedding i.e., for even indices, it uses the sine function, and for odd indices, it uses the cosine function. This design allows the model to capture both absolute and relative positional information, as the combination of sine and cosine functions can represent a wide range of positional relationships. 
 \end{important}
 
-% ─────────────────────────────────────────────────────────────────
-\section{Implementation}
-% ─────────────────────────────────────────────────────────────────
+\vspace{0.1in}
 
-\subsection{Attention Module}
+\section{Architecture (P.E Variations).}
 
-The core attention function in PyTorch:
+Why is there a need of alternative positional encoding schemes? AbsPE has some limitations such as it does not generalize well to longer sequences than those seen during training, and it does not capture relative positional information effectively. Moreover, they waste a lot of parameters on encoding absolute position patterns. For example, usually an adjective is followed by a noun, which is a relative positional pattern i.e., it doesn't matter whether the adjective is at position 5 and noun is at position 6 or whether the adjective is at position 50 and noun is at position 51, the pattern still holds. AbsPE would need to learn separate encodings for each of these positions, which can be inefficient and may not generalize well to unseen sequence lengths. This motivates the need for alternative positional encoding schemes that can capture relative positional information more effectively and generalize better to longer sequences. Mathematically,
 
-\begin{codebox}[Python — Scaled Dot-Product Attention]
-import torch
-import torch.nn.functional as F
-import math
 
-def scaled_dot_product_attention(Q, K, V, mask=None):
-    """
-    Q, K, V : (batch, heads, seq, d_k)
-    """
-    d_k = Q.size(-1)
-    scores = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(d_k)
-    if mask is not None:
-        scores = scores.masked_fill(mask == 0, float('-inf'))
-    weights = F.softmax(scores, dim=-1)
-    return torch.matmul(weights, V), weights
-\end{codebox}
+\[
+    \mathbf{X} = X_{\text{token}} + X_{\text{PE}} 
+\]
 
-\subsection{Layer Normalisation}
+\[
+    \mathbf{Q} = \mathbf{X} \mathbf{W}^Q, \quad \mathbf{K} = \mathbf{X} \mathbf{W}^K, \quad \mathbf{V} = \mathbf{X} \mathbf{W}^V
+\]
 
-Residual connections are followed by layer normalisation:
-\begin{equation}
-    \bm{y} = \LayerNorm\!\left(\bm{x} + \operatorname{Sublayer}(\bm{x})\right)
-\end{equation}
+In each, (lets take \(\mathbf{Q}\) as example)
+\[
+    \mathbf{Q} = (X_{\text{token}} + X_{\text{PE}}) \mathbf{W}^Q = 
+\]
+\[
+    \mathbf{Q} = X_{\text{token}} \mathbf{W}^Q + X_{\text{PE}} \mathbf{W}^Q
+\]
 
-\begin{remark}[Pre-LN vs.\ Post-LN]
-Modern implementations (GPT, LLaMA) typically apply normalisation
-\emph{before} the sublayer (\emph{Pre-LN}), which improves gradient flow and
-stabilises training without a learning rate warm-up.
+The same happens with \(\mathbf{K}\) and \(\mathbf{V}\). This goes to show that AbsPE forces the model to learn separate representations for token content and positional information, which can lead to inefficiencies and poor generalization.   
+
+\vspace{0.1in}
+
+\subsection{Rotary Positional Encoding. (RoPE)}
+
+RoPE is one such PE scheme that is primarily designed to capture relative positional information more effectively. It does this by applying a rotation to the query and key vectors based on their positions in the sections. The rotation is defined as follows:
+
+\begin{align*}
+    \mathbf{Q}_R &= Q \cdot R_{m, \theta} \\
+    \mathbf{K}_R &= K \cdot R_{m, \theta}
+\end{align*}
+
+Where \(R_{m, \theta}\) is a rotation matrix that depends on the position \(m\) and a base angle \(\theta\). The rotation matrix for two dimensions is defined as:
+
+\[
+    R_{m, \theta} = \begin{pmatrix}
+\cos(m \theta) & -\sin(m \theta) \\
+\sin(m \theta) & \cos (m \theta)
+\end{pmatrix}
+\]
+
+\[
+    \theta = 10000^{-2i/d_{\text{model}}}
+\]
+
+The way that the rotation takes place for \(d_{k}\) dimensions is that you split it into pairs of two and then rotate each pair using the above rotation matrix. The analogy is how for 2D vectors you can first rotate one vector along one axis and then along another axis to get the final rotation. Similarly, for \(d_k\) dimensions, you can think of it as applying a series of rotations across different planes to rotate the vector.
+
+\subsubsection{How does it capture the Relative Positional Information?}
+
+From the above equations, 
+
+\[
+    \mathbf{Q}_{R}  \cdot \mathbf{K}_{R}^T = (Q \cdot R_{m, \theta}) \cdot (K \cdot R_{n, \theta})^T 
+\]
+
+\[
+    \mathbf{Q}_{R}  \cdot \mathbf{K}_{R}^T = Q \cdot R_{m, \theta} \cdot R_{n, \theta}^T \cdot K^T
+\]
+
+We know that \(R_\alpha \cdot R_\beta = R_{\alpha + \beta}\) and \(R_{-\alpha} = R_\alpha^T\). So,
+
+\[
+    \mathbf{Q}_{R}  \cdot \mathbf{K}_{R}^T = Q \cdot \boxed{R_{m-n, \theta}} \cdot K^T
+\]
+
+This shows that the attention weights depend only on the relative position \(m-n\) between the query and key, rather than their absolute positions. This allows the model to capture relative positional information more effectively, as it can learn patterns based on the distance between tokens rather than their specific positions in the sequence.
+
+\begin{remark}[Implementation using Complex Numbers.]
+    Instead of doing heavy matrix multiplications with the rotation matrices, we can resort to complex numbers for rotations. After pairing up, 
+
+    \[
+        \mathbf{Q} = \begin{bmatrix}
+            [Q_1 , Q_2]  \\
+             \vdots   \\
+            [Q_{d_k - 1},  Q_{d_k}]  \\
+        \end{bmatrix}
+    \]
+
+    This can be viewed as a complex vector. 
+
+    \[
+        \mathbf{Q}_C = \begin{bmatrix}
+            Q_1 + i Q_2  \\
+             \vdots   \\
+            Q_{d_k - 1} + i Q_{d_k}  \\
+        \end{bmatrix}
+    \]
+    
+    We know that multiplying a complex number by \(e^{i m\theta}\) results in a rotation of the complex number by an angle \(m\theta\) in the complex plane. Therefore, we can represent the rotation as:
+
+    \[
+        \mathbf{Q}_R = \mathbf{Q}_C \cdot e^{i m\theta}
+    \]
+
+    This approach is computationally efficient as it is just element-wise multiplication, and it avoids the need for explicit matrix multiplications with the rotation matrices. The same can be done for \(\mathbf{K}\) as well.
 \end{remark}
 
-% ─────────────────────────────────────────────────────────────────
-\section{Training Dynamics}
-% ─────────────────────────────────────────────────────────────────
+\vspace{0.1in}
 
-\subsection{Learning Rate Schedule}
+\subsection{Attention with Linear Biases. (ALiBi)}
 
-The original Transformer uses a warm-up schedule:
-\begin{equation}
-    \alpha = d_{\text{model}}^{-0.5}
-              \cdot \min\!\left(\mathit{step}^{-0.5},\;
-              \mathit{step} \cdot \mathit{warmup}^{-1.5}\right)
-\end{equation}
+ALiBi is different from RoPE and AbsPE in the sense that it neither modifies the input embeddings nor does it apply any transformations to the query and key vectors. Instead, it adds a bias term directly to the attention scores based on the relative positions of the tokens. 
 
-\begin{important}[Warm-up Critical]
-Without the linear warm-up phase the model often diverges in early training.
-A typical value is $\mathit{warmup} = 4000$ steps.
-\end{important}
+\[
+    \text{Standard Score} = \frac{\mathbf{Q} \mathbf{K}^T}{\sqrt{d_k}}
+\]
 
-\subsection{Regularisation}
+\[
+    \text{ALiBi Score} = \frac{\mathbf{Q} \mathbf{K} ^T}{\sqrt{d_k}} + m (i - j)
+\]
 
-Three regularisation strategies are employed:
+This goes to show that ALiBi adds more penalty to the attention scores as the distance between the query and key positions increases, which encourages the model to focus more on nearby tokens. Where,
+\[
+    m = 2^{\frac{-8h}{n}}
+\]
+ 
+Implying that the bias factor or \emph{slope} \(m\) reduces exponential for subsequent attention heads, allowing different heads to capture different ranges of dependencies. The first head will have the largest bias, focusing more on local context, while the later heads will have smaller biases, allowing them to attend to more distant tokens.
 
-\begin{enumerate}[leftmargin=*, itemsep=2pt, topsep=3pt]
-    \item \textbf{Dropout} applied to attention weights and sublayer outputs
-          ($p_{\text{drop}} = 0.1$).
-    \item \textbf{Label smoothing} with $\varepsilon_{ls} = 0.1$, which hurts
-          perplexity but improves BLEU.
-    \item \textbf{Weight decay} ($\lambda = 10^{-4}$) on all non-bias parameters.
-\end{enumerate}
+% Required in preamble:
+%   \usepackage{tikz}
+%   \usetikzlibrary{shadings}
+%   \usepackage{xcolor}
 
-% ─────────────────────────────────────────────────────────────────
-\section{Experimental Results}
-% ─────────────────────────────────────────────────────────────────
 
-\subsection{Ablation: Number of Heads}
-
-\begin{table}[H]
+\begin{figure}[H]
 \centering
-\small
-\setlength{\tabcolsep}{6pt}
-\begin{tabular}{lccc}
-\toprule
-\rowcolor{altbgraised}
-\textbf{Heads} ($h$) & \textbf{Val.\ Loss} & \textbf{BLEU} & \textbf{Params} \\
-\midrule
-1  & 3.42 & 18.1 & 37.4M \\
-\rowcolor{altrowave}
-4  & 2.91 & 23.7 & 37.4M \\
-8  & 2.78 & 25.3 & 37.4M \\
-\rowcolor{altrowave}
-16 & 2.81 & 24.9 & 37.4M \\
-\bottomrule
-\end{tabular}
-\caption{Effect of the number of attention heads (base model, $d_{\text{model}}=512$).}
-\label{tab:heads}
-\end{table}
+\resizebox{0.95\textwidth}{!}{%
+\begin{tikzpicture}[font=\tiny, line width=0.3pt]
 
-Eight heads yields the best BLEU score; increasing to 16 slightly degrades
-performance, consistent with findings in \cite{voita2019analyzing}.
+  \def\cs{0.58}         % cell side-length (cm)
+  \def\gmax{4.0}        % global max penalty for colour normalisation (m=1, dist=4)
+  \def\gap{1.05}        % horizontal gap between grids (cm)
+  \def\fadefactor{1.5}  % TWEAK THIS: >1 makes it fade out faster, <1 makes it slower
 
-% ─────────────────────────────────────────────────────────────────
-\section{Conclusion}
-% ─────────────────────────────────────────────────────────────────
+  %% Three representative heads ------------------------------------------
+  \foreach \hi/\mval/\mlabel in {%
+    0/{1.00}/{Head 1 \; $m = 1$},%
+    1/{0.50}/{Head 2 \; $m = \tfrac{1}{2}$},%
+    2/{0.25}/{Head 3 \; $m = \tfrac{1}{4}$}%
+  }{
+    \pgfmathsetmacro{\xo}{\hi*(5*\cs + \gap)}
 
-We have implemented and analysed the Transformer architecture from scratch,
-covering attention, positional encodings, layer normalisation, and training
-dynamics. Ablation results confirm the importance of multi-head attention and
-proper learning rate scheduling. Future work will explore relative positional
-encodings and sparse attention variants.
+    %--- Head label -------------------------------------------------------
+    \node[above, font=\footnotesize, align=center, text=alttext]
+      at (\xo + 2.0*\cs, 0.28) {\mlabel};
 
-% ─────────────────────────────────────────────────────────────────
-%  REFERENCES  (replace with .bib file as needed)
-% ─────────────────────────────────────────────────────────────────
-\begin{thebibliography}{9}
-\small
-\bibitem{vaswani2017attention}
-A.\ Vaswani et al., ``Attention is all you need,''
-\textit{NeurIPS}, 2017.
+    %--- Grid cells -------------------------------------------------------
+    \foreach \qi in {0,...,4}{
+      \foreach \ki in {0,...,4}{
+        \pgfmathsetmacro{\cx}{\xo + \ki*\cs}
+        \pgfmathsetmacro{\cy}{-\qi*\cs}
 
-\bibitem{voita2019analyzing}
-E.\ Voita et al., ``Analyzing multi-head self-attention: Specialized heads
-do the heavy lifting, the rest can be pruned,''
-\textit{ACL}, 2019.
-\end{thebibliography}
+        % Is this a masked (future) position?
+        \pgfmathparse{\qi < \ki ? 1 : 0}
+        \ifdim\pgfmathresult pt > 0.5pt
+          %-- Masked cell --
+          \fill[altdiv] (\cx,\cy) rectangle +(\cs,-\cs);
+          \draw[altbg, line width=0.5pt] (\cx,\cy) rectangle +(\cs,-\cs);
+        \else
+          %-- Valid attention cell --
+          \pgfmathsetmacro{\pen}{\mval*(\qi-\ki)}
+          % Multiplied the drop-off by fadefactor
+          \pgfmathsetmacro{\cpct}{max(0, 88 - (\pen/\gmax*100*\fadefactor))}
+          \fill[altdkblue!\cpct!altbgraised] (\cx,\cy) rectangle +(\cs,-\cs);
+          \draw[altbg, line width=0.5pt] (\cx,\cy) rectangle +(\cs,-\cs);
+
+          % Text colour: light on dark cells, muted on light
+          \pgfmathparse{\cpct > 44 ? 1 : 0}
+          \ifdim\pgfmathresult pt > 0.5pt
+            \def\tc{alttext}
+          \else
+            \def\tc{altgrey}
+          \fi
+
+          % Display the bias value
+          \pgfmathsetmacro{\bval}{-\pen}
+          \pgfmathparse{abs(\bval) < 0.001 ? 1 : 0}
+          \ifdim\pgfmathresult pt > 0.5pt
+            \node[text=\tc] at (\cx+0.5*\cs, \cy-0.5*\cs) {$0$};
+          \else
+            \pgfmathprintnumberto[fixed, precision=2]{\bval}{\bs}
+            \node[text=\tc] at (\cx+0.5*\cs, \cy-0.5*\cs) {\bs};
+          \fi
+        \fi
+      }
+    }
+
+    %--- Position index labels --------------------------------------------
+    \foreach \k in {0,...,4}{
+      \node[left=0.04cm, text=altgrey] at (\xo, -\k*\cs - 0.5*\cs) {\k};
+      \node[below=0.04cm, text=altgrey] at (\xo + \k*\cs + 0.5*\cs, -5*\cs) {\k};
+    }
+
+    %--- Axis labels ------------------------------------------------------
+    \node[rotate=90, text=altlb, font=\tiny, anchor=north]
+      at (\xo - 0.75, -2.5*\cs) {Query $i$};
+    \node[text=altlb, font=\tiny, below=0.34cm]
+      at (\xo + 2.0*\cs, -5*\cs) {Key $j$};
+  }
+
+\end{tikzpicture}
+}
+\caption{%
+ALiBi just tweaks attention scores at inference with a fixed distance penalty $-m(i-j)$---steep slopes keep things strictly local, while smaller slopes let the model vibe with way more context.
+}
+\label{fig:alibi_matrices}
+\end{figure}
+
+\subsection{Relative Position Encoding. (RPE)}
+
+RPE is similar to ALiBi in the sense that both perform a Linear Addition to the attention matrix. But RPE doesn't use fixed slopes, it uses learnable parameters based on the distance between the current token and target token. There is also a clipping distance \(k\) such that for any distance greater than \(k\), the same bias is applied. 
+
+\[
+    \text{RPE Score} = \frac{\mathbf{Q} \mathbf{K} ^T}{\sqrt{d_k}} + b_{c_{i - j}},\ c_{i - j} = \min \{k, i - j \}
+\]
+
+\begin{figure}[H]
+\centering
+\resizebox{1.0\textwidth}{!}{%
+\begin{tikzpicture}[font=\tiny, line width=0.3pt]
+
+  \def\cs{0.6}       % cell side-length (reduced from 0.7)
+  \def\gap{1.2}      % horizontal gap between sections
+
+  % Helper macros to fetch the exact bias values based on distance index
+  \newcommand{\getHOne}[1]{\ifcase#1 1.5\or 0.2\or -0.5\or -1.2\fi}
+  \newcommand{\getHTwo}[1]{\ifcase#1 0.8\or -0.1\or -0.9\or -2.5\fi}
+
+  %% -----------------------------------------------------------------------
+  %% 1. Distance Matrix (Left)
+  %% -----------------------------------------------------------------------
+  \pgfmathsetmacro{\xdist}{0}
+  \pgfmathsetmacro{\ydist}{0}
+
+  \node[above, font=\footnotesize, text=alttext] at (\xdist + 2*\cs, \ydist + 0.2) {\textbf{Distance Matrix}};
+
+  \foreach \qi in {0,...,3}{
+    \foreach \ki in {0,...,3}{
+      \pgfmathsetmacro{\cx}{\xdist + \ki*\cs}
+      \pgfmathsetmacro{\cy}{\ydist - \qi*\cs}
+      
+      \ifnum\qi<\ki
+        % Masked cells (Future)
+        \fill[altdiv] (\cx,\cy) rectangle +(\cs,-\cs);
+        \draw[altbg, line width=0.5pt] (\cx,\cy) rectangle +(\cs,-\cs);
+        \node[text=altgrey] at (\cx+0.5*\cs, \cy-0.5*\cs) {$-\infty$};
+      \else
+        % Valid distance cells
+        \fill[altbgraised] (\cx,\cy) rectangle +(\cs,-\cs);
+        \draw[altbg, line width=0.5pt] (\cx,\cy) rectangle +(\cs,-\cs);
+        \node[text=alttext] at (\cx+0.5*\cs, \cy-0.5*\cs) {\number\numexpr\qi-\ki\relax};
+      \fi
+    }
+  }
+
+  % Axis labels for Distance Matrix
+  \foreach \k in {0,...,3}{
+    \node[left=0.04cm, text=altgrey] at (\xdist, \ydist - \k*\cs - 0.5*\cs) {\k};
+    \node[below=0.04cm, text=altgrey] at (\xdist + \k*\cs + 0.5*\cs, \ydist - 4*\cs) {\k};
+  }
+  \node[rotate=90, text=altlb, font=\tiny, anchor=north] at (\xdist - 0.6, \ydist - 2*\cs) {Query $i$};
+  \node[text=altlb, font=\tiny, below=0.34cm] at (\xdist + 2*\cs, \ydist - 4*\cs) {Key $j$};
+
+
+  %% -----------------------------------------------------------------------
+  %% 2. Lookup Table (Middle)
+  %% -----------------------------------------------------------------------
+  \pgfmathsetmacro{\xtable}{\xdist + 4*\cs + \gap + 0.5}
+  \pgfmathsetmacro{\ytable}{0.2}
+  \pgfmathsetmacro{\cellh}{0.65} % row height (reduced from 0.8)
+  \pgfmathsetmacro{\cellw}{1.4}  % row width (reduced from 1.6)
+
+  % Connecting arrow from Distance to Table
+  \draw[->, >=stealth, alttext, line width=0.8pt] 
+    (\xdist + 4*\cs + 0.2, \ydist - 2*\cs) -- (\xtable - 0.2, \ydist - 2*\cs)
+    node[midway, above=0.05cm, text=alttext, align=center] {Lookup};
+
+  \node[above, font=\footnotesize, text=alttext] at (\xtable + 1.5*\cellw, \ytable + 0.2) {\textbf{Learned Bias Table}};
+
+  % Table Background
+  \draw[altborder, altbgraised, fill=altbgraised] 
+    (\xtable, \ytable) rectangle +(\cellw*3, -\cellh*5 - 0.1);
+
+  % Table Headers
+  \node[altgrey, anchor=west] at (\xtable+0.2, \ytable-0.3) {Dist. Index};
+  \node[altdkblue, anchor=west] at (\xtable+\cellw+0.2, \ytable-0.3) {\textbf{Head 1 Bias}};
+  \node[altdkblue, anchor=west] at (\xtable+2*\cellw+0.2, \ytable-0.3) {\textbf{Head 2 Bias}};
+  
+  \draw[altborder] (\xtable, \ytable-0.6) -- +(\cellw*3, 0);
+
+  % Table Rows (0 to 3)
+  \foreach \idx in {0,...,3}{
+    \pgfmathsetmacro{\cy}{\ytable - \cellh*\idx - 0.95}
+    
+    % Distance Index
+    \node[alttext, anchor=west] at (\xtable+0.2, \cy) {\idx};
+    
+    % Head 1 Value
+    \node[alttext, anchor=west] at (\xtable+\cellw+0.2, \cy) {\getHOne{\idx}};
+    
+    % Head 2 Value
+    \node[alttext, anchor=west] at (\xtable+2*\cellw+0.2, \cy) {\getHTwo{\idx}};
+  }
+
+
+  %% -----------------------------------------------------------------------
+  %% 3. Head Bias Matrices (Right, Vertically Stacked)
+  %% -----------------------------------------------------------------------
+  \pgfmathsetmacro{\xheads}{\xtable + 3*\cellw + \gap + 0.5}
+  \pgfmathsetmacro{\yheadtop}{0.5}
+  \pgfmathsetmacro{\yheadbot}{-2.7} % pulled up (reduced from -3.5)
+
+  % Arrows from table to matrices
+  \draw[->, >=stealth, altdkblue, line width=0.6pt, densely dotted] 
+    (\xtable + 3*\cellw, \ytable - 1.0) .. controls +(0.6, 0) and +(-0.6, 0) .. (\xheads - 0.2, \yheadtop - 2*\cs);
+  \node[altdkblue, above, rotate=12] at (\xtable + 3*\cellw + 0.7, \ytable - 0.8) {Head 1};
+
+  \draw[->, >=stealth, altdkblue, line width=0.6pt, densely dotted] 
+    (\xtable + 3*\cellw, \ytable - 2.2) .. controls +(0.6, 0) and +(-0.6, 0) .. (\xheads - 0.2, \yheadbot - 2*\cs);
+  \node[altdkblue, below, rotate=-15] at (\xtable + 3*\cellw + 0.8, \ytable - 2.4) {Head 2};
+
+
+  % --- Head 1 Matrix (Top) ---
+  \node[above, font=\footnotesize, text=alttext] at (\xheads + 2*\cs, \yheadtop + 0.2) {\textbf{Head 1 Biases}};
+
+  \foreach \qi in {0,...,3}{
+    \foreach \ki in {0,...,3}{
+      \pgfmathsetmacro{\cx}{\xheads + \ki*\cs}
+      \pgfmathsetmacro{\cy}{\yheadtop - \qi*\cs}
+      
+      \ifnum\qi<\ki
+        \fill[altdiv] (\cx,\cy) rectangle +(\cs,-\cs);
+        \draw[altbg, line width=0.5pt] (\cx,\cy) rectangle +(\cs,-\cs);
+        \node[text=altgrey] at (\cx+0.5*\cs, \cy-0.5*\cs) {$-\infty$};
+      \else
+        \fill[altbgraised] (\cx,\cy) rectangle +(\cs,-\cs);
+        \draw[altbg, line width=0.5pt] (\cx,\cy) rectangle +(\cs,-\cs);
+        \node[text=alttext] at (\cx+0.5*\cs, \cy-0.5*\cs) {\getHOne{\number\numexpr\qi-\ki\relax}};
+      \fi
+    }
+  }
+
+  % --- Head 2 Matrix (Bottom) ---
+  \node[above, font=\footnotesize, text=alttext] at (\xheads + 2*\cs, \yheadbot + 0.2) {\textbf{Head 2 Biases}};
+
+  \foreach \qi in {0,...,3}{
+    \foreach \ki in {0,...,3}{
+      \pgfmathsetmacro{\cx}{\xheads + \ki*\cs}
+      \pgfmathsetmacro{\cy}{\yheadbot - \qi*\cs}
+      
+      \ifnum\qi<\ki
+        \fill[altdiv] (\cx,\cy) rectangle +(\cs,-\cs);
+        \draw[altbg, line width=0.5pt] (\cx,\cy) rectangle +(\cs,-\cs);
+        \node[text=altgrey] at (\cx+0.5*\cs, \cy-0.5*\cs) {$-\infty$};
+      \else
+        \fill[altbgraised] (\cx,\cy) rectangle +(\cs,-\cs);
+        \draw[altbg, line width=0.5pt] (\cx,\cy) rectangle +(\cs,-\cs);
+        \node[text=alttext] at (\cx+0.5*\cs, \cy-0.5*\cs) {\getHTwo{\number\numexpr\qi-\ki\relax}};
+      \fi
+    }
+  }
+
+  % Axis labels for Head Matrices (optional, adding to bottom one for reference)
+  \foreach \k in {0,...,3}{
+    \node[left=0.04cm, text=altgrey] at (\xheads, \yheadbot - \k*\cs - 0.5*\cs) {\k};
+    \node[below=0.04cm, text=altgrey] at (\xheads + \k*\cs + 0.5*\cs, \yheadbot - 4*\cs) {\k};
+  }
+
+\end{tikzpicture}
+}
+\caption{%
+Instead of ALiBi's rigid math, RPE uses a lookup table (Embedding Table) to map causal distances into fully learnable, head-specific bias matrices that the model tweaks during training.
+}
+\label{fig:rpe_lookup_flow}
+\end{figure}
+\hrule
+
+
+\section{Architecture. (Attention Variants)}
+
+\subsection{Sliding Window Attention. (SWA)}
+
+In SWA, each token attends only to a fixed-size window of previous tokens, rather than the entire sequence. This reduces the computational complexity from \(O(L^2)\) to \(O(L \cdot w)\), where \(w\) is the window size. Making the computation linearly dependent on the sequence length. The attention scores are computed as:
+
+\[
+    \text{SWA Score}_{i,j} = \begin{cases}
+        \frac{\mathbf{Q}_i \cdot \mathbf{K}_j^T}{\sqrt{d_k}} & \text{if } i - j < w \\
+        -\infty & \text{otherwise}
+    \end{cases}
+\]
+
+\subsection{Multiple Query Attention (MQA) and Grouped Query Attention (GQA).}
+
+In MQA, we have a single set of keys and values for all attention heads, but each head has its own set of queries. This means that while the keys and values are shared across heads, the queries are not. This can reduce the memory footprint and computational cost, as we only need to compute one set of keys and values for all heads.
+
+In GQA, we divide the attention heads into groups, and each group shares a set of keys and values. This is a middle ground between MQA and the standard multi-head attention, where each head has its own keys and values.
+
+\begin{figure}[H]
+\centering
+\resizebox{1.0\textwidth}{!}{%
+\begin{tikzpicture}[font=\tiny, line width=0.3pt]
+
+  %% -----------------------------------------------------------------------
+  %% 1. Sliding Window Attention (SWA) Matrix
+  %% -----------------------------------------------------------------------
+  \def\cs{0.55}      % cell side-length
+  \def\window{2}     % window size w=2
+  \pgfmathsetmacro{\xswa}{0}
+  \pgfmathsetmacro{\yswa}{0}
+
+  \node[above, font=\footnotesize, text=alttext] at (\xswa + 3*\cs, \yswa + 0.3) {\textbf{Sliding Window (SWA)}};
+  \node[above, font=\tiny, text=altgrey] at (\xswa + 3*\cs, \yswa) {Window size $w=2$};
+
+  \foreach \qi in {0,...,5}{
+    \foreach \ki in {0,...,5}{
+      \pgfmathsetmacro{\cx}{\xswa + \ki*\cs}
+      \pgfmathsetmacro{\cy}{\yswa - \qi*\cs - 0.5} % offset to align with blocks
+      
+      % Fixed: using truncate to guarantee an integer for \ifnum
+      \pgfmathtruncatemacro{\diff}{\qi - \ki}
+      
+      \ifnum \diff < 0
+        % Causal Mask (Future)
+        \fill[altdiv] (\cx,\cy) rectangle +(\cs,-\cs);
+        \draw[altbg, line width=0.5pt] (\cx,\cy) rectangle +(\cs,-\cs);
+      \else
+        \ifnum \diff > \window
+          % Sliding Window Mask (Too far in the past)
+          \fill[altdiv] (\cx,\cy) rectangle +(\cs,-\cs);
+          \draw[altbg, line width=0.5pt] (\cx,\cy) rectangle +(\cs,-\cs);
+          \node[text=altgrey] at (\cx+0.5*\cs, \cy-0.5*\cs) {$\emptyset$};
+        \else
+          % Active Window Band
+          \fill[altdkblue!88!altbgraised] (\cx,\cy) rectangle +(\cs,-\cs);
+          \draw[altbg, line width=0.5pt] (\cx,\cy) rectangle +(\cs,-\cs);
+          \node[text=alttext] at (\cx+0.5*\cs, \cy-0.5*\cs) {1};
+        \fi
+      \fi
+    }
+  }
+
+  % Axis labels for SWA
+  \node[rotate=90, text=altlb, font=\tiny, anchor=south] at (\xswa - 0.2, \yswa - 3*\cs - 0.5) {Query $i$};
+  \node[text=altlb, font=\tiny, anchor=north] at (\xswa + 3*\cs, \yswa - 6*\cs - 0.6) {Key $j$};
+
+
+  %% -----------------------------------------------------------------------
+  %% 2. Multi-Query Attention (MQA) Architecture
+  %% -----------------------------------------------------------------------
+  \pgfmathsetmacro{\xmqa}{4.8}
+  \pgfmathsetmacro{\ymqa}{-0.5}
+  \def\bw{0.9}   % block width
+  \def\bh{0.65}  % Q block height
+  \def\vgap{0.2} % vertical gap
+
+  \node[above, font=\footnotesize, text=alttext] at (\xmqa + 1.6, \yswa + 0.3) {\textbf{Multi-Query (MQA)}};
+  \node[above, font=\tiny, text=altgrey] at (\xmqa + 1.6, \yswa) {1 Shared K/V Head};
+
+  % Draw 4 Q Blocks
+  \foreach \i in {0,...,3}{
+    \pgfmathsetmacro{\y}{\ymqa - \i*(\bh + \vgap)}
+    % Fixed: safely calculating the index
+    \pgfmathtruncatemacro{\idx}{\i+1}
+    \draw[altdkblue, line width=0.8pt, fill=altbgraised] 
+      (\xmqa, \y) rectangle +(\bw, -\bh) node[midway, alttext] {$Q_{\idx}$};
+      
+    % Dotted arrows from Qs to the single K block
+    \draw[->, >=stealth, altdkblue, densely dotted] (\xmqa+\bw, \y-0.5*\bh) -- (\xmqa+\bw+0.4, \ymqa - 1.6);
+  }
+
+  % Draw 1 K Block (spanning the height of all 4 Qs)
+  \pgfmathsetmacro{\totalH}{4*\bh + 3*\vgap}
+  \draw[altlb, line width=0.8pt, fill=altbgraised] 
+    (\xmqa+\bw+0.4, \ymqa) rectangle +(\bw, -\totalH) node[midway, alttext] {$K$};
+
+  % Draw 1 V Block
+  \draw[altgrey, line width=0.8pt, fill=altbgraised] 
+    (\xmqa+2*\bw+0.6, \ymqa) rectangle +(\bw, -\totalH) node[midway, alttext] {$V$};
+
+
+  %% -----------------------------------------------------------------------
+  %% 3. Grouped-Query Attention (GQA) Architecture
+  %% -----------------------------------------------------------------------
+  \pgfmathsetmacro{\xgqa}{9.5}
+  \pgfmathsetmacro{\ygqa}{-0.5}
+
+  \node[above, font=\footnotesize, text=alttext] at (\xgqa + 1.6, \yswa + 0.3) {\textbf{Grouped-Query (GQA)}};
+  \node[above, font=\tiny, text=altgrey] at (\xgqa + 1.6, \yswa) {2 Groups of K/V Heads};
+
+  % Draw 4 Q Blocks
+  \foreach \i in {0,...,3}{
+    \pgfmathsetmacro{\y}{\ygqa - \i*(\bh + \vgap)}
+    % Fixed: safely calculating the index
+    \pgfmathtruncatemacro{\idx}{\i+1}
+    \draw[altdkblue, line width=0.8pt, fill=altbgraised] 
+      (\xgqa, \y) rectangle +(\bw, -\bh) node[midway, alttext] {$Q_{\idx}$};
+  }
+
+  % Draw Group 1 K/V Blocks (spanning Q1 and Q2)
+  \pgfmathsetmacro{\grpH}{2*\bh + \vgap}
+  \draw[altlb, line width=0.8pt, fill=altbgraised] 
+    (\xgqa+\bw+0.4, \ygqa) rectangle +(\bw, -\grpH) node[midway, alttext] {$K_1$};
+  \draw[altgrey, line width=0.8pt, fill=altbgraised] 
+    (\xgqa+2*\bw+0.6, \ygqa) rectangle +(\bw, -\grpH) node[midway, alttext] {$V_1$};
+
+  % Group 1 Arrows
+  \draw[->, >=stealth, altdkblue, densely dotted] (\xgqa+\bw, \ygqa-0.5*\bh) -- (\xgqa+\bw+0.4, \ygqa-0.5*\grpH);
+  \draw[->, >=stealth, altdkblue, densely dotted] (\xgqa+\bw, \ygqa-\bh-\vgap-0.5*\bh) -- (\xgqa+\bw+0.4, \ygqa-0.5*\grpH);
+
+  % Draw Group 2 K/V Blocks (spanning Q3 and Q4)
+  \pgfmathsetmacro{\grpY}{\ygqa - 2*\bh - 2*\vgap}
+  \draw[altlb, line width=0.8pt, fill=altbgraised] 
+    (\xgqa+\bw+0.4, \grpY) rectangle +(\bw, -\grpH) node[midway, alttext] {$K_2$};
+  \draw[altgrey, line width=0.8pt, fill=altbgraised] 
+    (\xgqa+2*\bw+0.6, \grpY) rectangle +(\bw, -\grpH) node[midway, alttext] {$V_2$};
+
+  % Group 2 Arrows
+  \draw[->, >=stealth, altdkblue, densely dotted] (\xgqa+\bw, \grpY-0.5*\bh) -- (\xgqa+\bw+0.4, \grpY-0.5*\grpH);
+  \draw[->, >=stealth, altdkblue, densely dotted] (\xgqa+\bw, \grpY-\bh-\vgap-0.5*\bh) -- (\xgqa+\bw+0.4, \grpY-0.5*\grpH);
+
+\end{tikzpicture}
+}
+\caption{%
+  Comparing efficiency optimizations in modern LLMs. \textbf{Left:} Sliding Window Attention (SWA) limits the context calculation to a localized band of width $w$, drastically cutting down computation for long sequences by masking out distant past tokens ($\emptyset$). \textbf{Middle:} Multi-Query Attention (MQA) speeds up inference memory (KV cache) by forcing all Query heads to share a single Key and Value head. \textbf{Right:} Grouped-Query Attention (GQA) strikes a balance between performance and memory by clustering Query heads into groups, where each group shares a dedicated Key and Value head.%
+}
+\label{fig:attention_variants}
+\end{figure}
+
+\newpage
+
+\section{Convolutional Variants.}
+
+Convolutions are a powerful tool for capturing local patterns in data, and they have been adapted for use in transformer architectures to create convolutional variants of attention. These variants aim to combine the benefits of both convolutional neural networks (CNNs) and transformers, allowing for efficient processing of sequential data while also capturing local dependencies effectively.
+
+\subsection{Conv1D Layer Before Attention. (ConvAttention Hybrid)}
+
+In this approach, a 1D convolutional layer is applied to the input sequence before it is fed into the attention mechanism. The convolutional layer can capture local patterns and dependencies in the input data, which can then be enhanced by the attention mechanism to capture global dependencies. Generally, while doing the convolution, the subsequent tokens are also mixed, which might lead to the model cheating by getting information about the future tokens. To prevent this, we can use causal convolutions, which ensure that the mixing happens with the current token and a few previous tokens, but not with any future tokens. The architecture can be visualized as follows:
+
+\begin{figure}[H]
+\centering
+\resizebox{1.0\textwidth}{!}{%
+\begin{tikzpicture}[font=\footnotesize, line width=0.3pt, rounded corners=1.2pt,
+  fwd/.style={->, >=stealth, alttext,   line width=0.5pt},
+  res/.style={->, >=stealth, altdkblue, line width=0.6pt, dashed}]
+
+  \def\bh{0.42}
+
+  %% ---- input x ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt]
+    (-0.45,-\bh) rectangle (0.45,\bh);
+  \node[alttext] at (0,0) {$x$};
+
+  %% ---- LayerNorm 1 ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt]
+    (0.77,-\bh) rectangle (2.33,\bh);
+  \node[alttext] at (1.55,0) {LayerNorm};
+
+  %% ---- permute (B,E,L) ----
+  \draw[altborder, fill=altdiv, line width=0.4pt]
+    (2.48,-\bh) rectangle (3.72,\bh);
+  \node[altgrey, align=center, font=\scriptsize] at (3.10,0)
+    {permute\\$(B,E,L)$};
+
+  %% ---- Causal Conv1d ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt]
+    (3.95,-\bh) rectangle (5.35,\bh);
+  \node[alttext, align=center] at (4.65,0) {Causal\\Conv1d};
+
+  %% ---- permute (B,L,E) ----
+  \draw[altborder, fill=altdiv, line width=0.4pt]
+    (5.58,-\bh) rectangle (6.82,\bh);
+  \node[altgrey, align=center, font=\scriptsize] at (6.20,0)
+    {permute\\$(B,L,E)$};
+
+  %% ---- GELU ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt]
+    (7.13,-\bh) rectangle (8.37,\bh);
+  \node[alttext] at (7.75,0) {GELU};
+
+  %% ---- Attention ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt]
+    (8.50,-\bh) rectangle (10.10,\bh);
+  \node[alttext] at (9.30,0) {Attention};
+
+  %% ---- add circle 1 ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt, rounded corners=0pt]
+    (10.85,0) circle (0.26);
+  \node[alttext] at (10.85,0) {$+$};
+
+  %% ---- LayerNorm 2 ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt]
+    (11.62,-\bh) rectangle (13.18,\bh);
+  \node[alttext] at (12.40,0) {LayerNorm};
+
+  %% ---- MLP ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt]
+    (13.33,-\bh) rectangle (14.57,\bh);
+  \node[alttext] at (13.95,0) {MLP};
+
+  %% ---- add circle 2 ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt, rounded corners=0pt]
+    (15.50,0) circle (0.26);
+  \node[alttext] at (15.50,0) {$+$};
+
+  %% ---- output ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt]
+    (16.40,-\bh) rectangle (17.50,\bh);
+  \node[alttext] at (16.95,0) {out};
+
+  %% ---- forward arrows ----
+  \draw[fwd] (0.45,0)  -- (0.77,0);
+  \draw[fwd] (2.33,0)  -- (2.48,0);
+  \draw[fwd] (3.72,0)  -- (3.95,0);
+  \draw[fwd] (5.35,0)  -- (5.58,0);
+  \draw[fwd] (6.82,0)  -- (7.13,0);
+  \draw[fwd] (8.37,0)  -- (8.50,0);
+  \draw[fwd] (10.10,0) -- (10.59,0);
+  \draw[fwd] (11.11,0) -- (11.62,0);
+  \draw[fwd] (13.18,0) -- (13.33,0);
+  \draw[fwd] (14.57,0) -- (15.24,0);
+  \draw[fwd] (15.76,0) -- (16.40,0);
+
+  %% ---- residual 1: x -> add1 ----
+  \fill[altdkblue] (0.60,0) circle (0.045);
+  \draw[res] (0.60,0) -- (0.60,1.25) -- (10.85,1.25) -- (10.85,0.26);
+  \node[altdkblue, font=\scriptsize] at (5.70,1.42) {residual};
+
+  %% ---- residual 2: add1 out -> add2 ----
+  \fill[altdkblue] (11.35,0) circle (0.045);
+  \draw[res] (11.35,0) -- (11.35,1.25) -- (15.50,1.25) -- (15.50,0.26);
+  \node[altdkblue, font=\scriptsize] at (13.42,1.42) {residual};
+
+\end{tikzpicture}
+}
+\caption{ConvAttentionBlock: causal-conv token mixing (LayerNorm $\to$ Conv1d $\to$ GELU $\to$ Attention) and feed-forward (LayerNorm $\to$ MLP) sublayers, each wrapped in a pre-norm residual connection.}
+\label{fig:convattn_block}
+\end{figure}
+
+\begin{remark}
+  The permute is required because the Conv1D layer expects the input in the shape of (Batch, Embedding, Length), while the attention mechanism operates on (Batch, Length, Embedding). The causal convolution ensures that the model only has access to the current and previous tokens, preventing any information leakage from future tokens during training.
+\end{remark}
+
+\subsection{Alternating Convolution + Attention blocks.}
+
+In this architecture, we alternate between convolutional layers and attention layers. For example, we might have a block of convolutional layers followed by a block of attention layers, and this pattern repeats throughout the network. This allows the model to capture both local and global dependencies effectively. The architecture can be visualized as follows:
+
+\begin{figure}[H]
+\centering
+\resizebox{1.0\textwidth}{!}{%
+\begin{tikzpicture}[font=\footnotesize, line width=0.3pt, rounded corners=1.2pt,
+  fwd/.style={->, >=stealth, alttext,   line width=0.5pt},
+  res/.style={->, >=stealth, altdkblue, line width=0.6pt, dashed}]
+
+  \def\bh{0.42}
+
+  %% ---- group containers ----
+  \draw[altborder, dashed, line width=0.4pt] (0.55,-0.75) rectangle (14.40,1.55);
+  \node[alttext] at (7.48,1.74) {\textbf{Conv Block}};
+  \draw[altborder, dashed, line width=0.4pt] (14.65,-0.75) rectangle (16.45,1.55);
+  \node[alttext] at (15.55,1.74) {\textbf{Transformer Block}};
+
+  %% ---- input x ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt] (-0.45,-\bh) rectangle (0.45,\bh);
+  \node[alttext] at (0,0) {$x$};
+  %% ---- LayerNorm 1 ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt] (0.87,-\bh) rectangle (2.43,\bh);
+  \node[alttext] at (1.65,0) {LayerNorm};
+  %% ---- permute (B,E,L) ----
+  \draw[altborder, fill=altdiv, line width=0.4pt] (2.70,-\bh) rectangle (3.90,\bh);
+  \node[altgrey, align=center, font=\scriptsize] at (3.30,0) {permute\\$(B,E,L)$};
+  %% ---- Causal Conv1d ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt] (4.25,-\bh) rectangle (5.65,\bh);
+  \node[alttext, align=center] at (4.95,0) {Causal\\Conv1d};
+  %% ---- permute (B,L,E) ----
+  \draw[altborder, fill=altdiv, line width=0.4pt] (6.00,-\bh) rectangle (7.20,\bh);
+  \node[altgrey, align=center, font=\scriptsize] at (6.60,0) {permute\\$(B,L,E)$};
+  %% ---- GELU ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt] (7.45,-\bh) rectangle (8.55,\bh);
+  \node[alttext] at (8.00,0) {GELU};
+  %% ---- add 1 ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt, rounded corners=0pt] (9.35,0) circle (0.26);
+  \node[alttext] at (9.35,0) {$+$};
+  %% ---- LayerNorm 2 ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt] (10.17,-\bh) rectangle (11.73,\bh);
+  \node[alttext] at (10.95,0) {LayerNorm};
+  %% ---- MLP ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt] (12.00,-\bh) rectangle (13.10,\bh);
+  \node[alttext] at (12.55,0) {MLP};
+  %% ---- add 2 ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt, rounded corners=0pt] (13.90,0) circle (0.26);
+  \node[alttext] at (13.90,0) {$+$};
+  %% ---- MHA ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt] (14.85,-\bh) rectangle (16.25,\bh);
+  \node[alttext] at (15.55,0) {MHA};
+  %% ---- output ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt] (16.55,-\bh) rectangle (17.65,\bh);
+  \node[alttext] at (17.10,0) {out};
+
+  %% ---- forward arrows ----
+  \draw[fwd] (0.45,0)--(0.87,0);   \draw[fwd] (2.43,0)--(2.70,0);
+  \draw[fwd] (3.90,0)--(4.25,0);   \draw[fwd] (5.65,0)--(6.00,0);
+  \draw[fwd] (7.20,0)--(7.45,0);   \draw[fwd] (8.55,0)--(9.09,0);
+  \draw[fwd] (9.61,0)--(10.17,0);  \draw[fwd] (11.73,0)--(12.00,0);
+  \draw[fwd] (13.10,0)--(13.64,0); \draw[fwd] (14.16,0)--(14.85,0);
+  \draw[fwd] (16.25,0)--(16.55,0);
+
+  %% ---- residual 1: x -> add1 ----
+  \fill[altdkblue] (0.66,0) circle (0.045);
+  \draw[res] (0.66,0)--(0.66,1.25)--(9.35,1.25)--(9.35,0.26);
+  \node[altdkblue, font=\scriptsize] at (5.00,1.42) {residual};
+
+  %% ---- residual 2: add1 out -> add2 ----
+  \fill[altdkblue] (9.85,0) circle (0.045);
+  \draw[res] (9.85,0)--(9.85,1.25)--(13.90,1.25)--(13.90,0.26);
+  \node[altdkblue, font=\scriptsize] at (11.88,1.42) {residual};
+
+\end{tikzpicture}
+}
+\caption{One alternating layer pair: the input $x$ passes through a Conv Block (causal-conv token mixing with two pre-norm residuals), whose output feeds a Transformer Block (multi-head attention).}
+\label{fig:conv_mha_pair}
+\end{figure}
+
+
+
+\end{document}

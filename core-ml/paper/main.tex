@@ -35,43 +35,27 @@
 \usepackage{wrapfig}
 
 % ─────────────────────────────────────────────────────────────────
-%  ALTED. COLOR SYSTEM
+%  COLOR SYSTEM  (light / default scientific palette)
+%  Names kept for compatibility; values remapped to white-background mode.
 % ─────────────────────────────────────────────────────────────────
-\definecolor{altbg}{HTML}{222222}
-\definecolor{altbgraised}{HTML}{2A2A28}
-\definecolor{altbgdeep}{HTML}{1A1A18}
-\definecolor{alttext}{HTML}{E4E4E4}
-\definecolor{altgrey}{HTML}{9E9E9E}
-\definecolor{altdg}{HTML}{525252}
-\definecolor{altborder}{HTML}{444444}
-\definecolor{altborderh}{HTML}{666666}
-\definecolor{altdiv}{HTML}{333333}
-\definecolor{altshadow}{HTML}{111111}
-\definecolor{altlb}{HTML}{888888}
-\definecolor{altgreen}{HTML}{6E9A73}
-\definecolor{altblue}{HTML}{5F87A1}
-\definecolor{altred}{HTML}{A85C5C}
-\definecolor{altdkgreen}{HTML}{3A6342}
-\definecolor{altdkblue}{HTML}{2D5A7A}
-\definecolor{altdkred}{HTML}{8A3535}
-\definecolor{altrowave}{HTML}{252523}
-
-% ─────────────────────────────────────────────────────────────────
-%  PAGE COLOR & TEXT COLOR
-% ─────────────────────────────────────────────────────────────────
-\pagecolor{altbg}
-\color{alttext}
-
-% ─────────────────────────────────────────────────────────────────
-%  BACKGROUND GRID  (very subtle — --div at hairline weight)
-% ─────────────────────────────────────────────────────────────────
-\AddToShipoutPictureBG{%
-  \begin{tikzpicture}[remember picture, overlay,
-    help lines/.append style={line width=0.035pt, color=altdiv}]
-    \draw[help lines] (current page.south west) grid[step=5pt]
-                      (current page.north east);
-  \end{tikzpicture}%
-}
+\definecolor{altbg}{HTML}{FFFFFF}        % page / cell separators
+\definecolor{altbgraised}{HTML}{ECECEC}  % box & cell fill
+\definecolor{altbgdeep}{HTML}{F5F5F5}    % code / definition insides
+\definecolor{alttext}{HTML}{1A1A1A}      % main text (near-black)
+\definecolor{altgrey}{HTML}{595959}      % muted text
+\definecolor{altdg}{HTML}{8A8A8A}        % grey fills / comments
+\definecolor{altborder}{HTML}{444444}    % rules & frames
+\definecolor{altborderh}{HTML}{777777}   % emphasised border
+\definecolor{altdiv}{HTML}{D9D9D9}       % dividers / masked cells
+\definecolor{altshadow}{HTML}{CCCCCC}
+\definecolor{altlb}{HTML}{6E6E6E}        % axis labels
+\definecolor{altgreen}{HTML}{2E7D32}     % saturated accents (links/strokes)
+\definecolor{altblue}{HTML}{1565C0}
+\definecolor{altred}{HTML}{C62828}
+\definecolor{altdkgreen}{HTML}{93C47D}   % light fills (readable under black text)
+\definecolor{altdkblue}{HTML}{6FA8DC}
+\definecolor{altdkred}{HTML}{E06666}
+\definecolor{altrowave}{HTML}{F5F5F5}
 
 % ─────────────────────────────────────────────────────────────────
 %  GEOMETRY & LAYOUT
@@ -125,6 +109,16 @@
 
 \titlespacing{\section}{0pt}{1.2ex plus .2ex}{0.8ex plus .1ex}
 \titlespacing{\subsection}{0pt}{1ex plus .2ex}{0.5ex plus .1ex}
+
+% Toggle section underline rule on/off (rule clashes with floated diagram)
+\newcommand{\sectionnorule}{%
+  \titleformat{\section}
+    {\normalfont\normalsize\bfseries\color{alttext}}
+    {\thesection.}{0.5em}{}}
+\newcommand{\sectionrule}{%
+  \titleformat{\section}
+    {\normalfont\normalsize\bfseries\color{alttext}}
+    {\thesection.}{0.5em}{}[{\color{altborder}\titlerule[0.4pt]}]}
 
 % ─────────────────────────────────────────────────────────────────
 %  CAPTION STYLING
@@ -216,14 +210,15 @@
 \newtcolorbox{remark}[1][]{%
     enhanced,
     breakable,
-    colback=altbgraised,
+    colback=altbgdeep,
     colframe=altborder,
+    colbacktitle=altdiv,
     coltext=alttext,
-    coltitle=altgrey,
-    fonttitle=\small\itshape,
+    coltitle=alttext,
+    fonttitle=\small\bfseries\itshape,
     title={Remark\ifx&#1&\else: #1\fi},
     arc=0pt, outer arc=0pt,
-    boxrule=0.4pt,
+    boxrule=0.6pt,
     boxsep=4pt, left=4pt, right=4pt,
     top=3pt, bottom=3pt,
     sharp corners
@@ -426,7 +421,9 @@ I present a from-scratch implementation of the Baseline Transformer architecture
 
 The Transformer architecture has revolutionalized natural language processing. Unlike traditional RNN-based models, the Transformer uses \emph{self-attention} mechanisms to capture relationships between tokens in a sequence. It has been done in a way to maximize parallelization, allowing for much efficient training on large datasets. The original Transformer architecture consists of an encoder-decoder structure, where both the encoder and decoder are composed of multiple layers of multi-head self-attention and feed-forward networks. The encoder processes the input sequence, while the decoder generates the output sequence one token at a time, attending to both the encoder's output and its own previous outputs. But I have implemented a decoder-only architecture in this assignment, which is commonly used for language modelling tasks. 
 
+\sectionnorule
 \section{Architecture. (Baseline)}
+\sectionrule
 
 \subsection{Self-Attention Mechanism.}
 
@@ -765,9 +762,9 @@ RPE is similar to ALiBi in the sense that both perform a Linear Addition to the 
     (\xtable, \ytable) rectangle +(\cellw*3, -\cellh*5 - 0.1);
 
   % Table Headers
-  \node[altgrey, anchor=west] at (\xtable+0.2, \ytable-0.3) {Dist. Index};
-  \node[altdkblue, anchor=west] at (\xtable+\cellw+0.2, \ytable-0.3) {\textbf{Head 1 Bias}};
-  \node[altdkblue, anchor=west] at (\xtable+2*\cellw+0.2, \ytable-0.3) {\textbf{Head 2 Bias}};
+  \node[altgrey, anchor=west] at (\xtable+0.2, \ytable-0.3) {Dist.};
+  \node[altblue, anchor=west] at (\xtable+\cellw+0.2, \ytable-0.3) {\textbf{Head 1}};
+  \node[altblue, anchor=west] at (\xtable+2*\cellw+0.2, \ytable-0.3) {\textbf{Head 2}};
   
   \draw[altborder] (\xtable, \ytable-0.6) -- +(\cellw*3, 0);
 
@@ -796,11 +793,11 @@ RPE is similar to ALiBi in the sense that both perform a Linear Addition to the 
   % Arrows from table to matrices
   \draw[->, >=stealth, altdkblue, line width=0.6pt, densely dotted] 
     (\xtable + 3*\cellw, \ytable - 1.0) .. controls +(0.6, 0) and +(-0.6, 0) .. (\xheads - 0.2, \yheadtop - 2*\cs);
-  \node[altdkblue, above, rotate=12] at (\xtable + 3*\cellw + 0.7, \ytable - 0.8) {Head 1};
+  \node[altblue, above, rotate=12] at (\xtable + 3*\cellw + 0.7, \ytable - 0.8) {Head 1};
 
   \draw[->, >=stealth, altdkblue, line width=0.6pt, densely dotted] 
     (\xtable + 3*\cellw, \ytable - 2.2) .. controls +(0.6, 0) and +(-0.6, 0) .. (\xheads - 0.2, \yheadbot - 2*\cs);
-  \node[altdkblue, below, rotate=-15] at (\xtable + 3*\cellw + 0.8, \ytable - 2.4) {Head 2};
+  \node[altblue, below, rotate=-15] at (\xtable + 3*\cellw + 0.8, \ytable - 2.4) {Head 2};
 
 
   % --- Head 1 Matrix (Top) ---
@@ -1012,6 +1009,196 @@ In GQA, we divide the attention heads into groups, and each group shares a set o
 \newpage
 
 \section{Convolutional Variants.}
+
+Convolutions are a powerful tool for capturing local patterns in data, and they have been adapted for use in transformer architectures to create convolutional variants of attention. These variants aim to combine the benefits of both convolutional neural networks (CNNs) and transformers, allowing for efficient processing of sequential data while also capturing local dependencies effectively.
+
+\subsection{Conv1D Layer Before Attention. (ConvAttention Hybrid)}
+
+In this approach, a 1D convolutional layer is applied to the input sequence before it is fed into the attention mechanism. The convolutional layer can capture local patterns and dependencies in the input data, which can then be enhanced by the attention mechanism to capture global dependencies. Generally, while doing the convolution, the subsequent tokens are also mixed, which might lead to the model cheating by getting information about the future tokens. To prevent this, we can use causal convolutions, which ensure that the mixing happens with the current token and a few previous tokens, but not with any future tokens. The architecture can be visualized as follows:
+
+\begin{figure}[H]
+\centering
+\resizebox{1.0\textwidth}{!}{%
+\begin{tikzpicture}[font=\footnotesize, line width=0.3pt, rounded corners=1.2pt,
+  fwd/.style={->, >=stealth, alttext,   line width=0.5pt},
+  res/.style={->, >=stealth, altdkblue, line width=0.6pt, dashed}]
+
+  \def\bh{0.42}
+
+  %% ---- input x ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt]
+    (-0.45,-\bh) rectangle (0.45,\bh);
+  \node[alttext] at (0,0) {$x$};
+
+  %% ---- LayerNorm 1 ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt]
+    (0.77,-\bh) rectangle (2.33,\bh);
+  \node[alttext] at (1.55,0) {LayerNorm};
+
+  %% ---- permute (B,E,L) ----
+  \draw[altborder, fill=altdiv, line width=0.4pt]
+    (2.48,-\bh) rectangle (3.72,\bh);
+  \node[altgrey, align=center, font=\scriptsize] at (3.10,0)
+    {permute\\$(B,E,L)$};
+
+  %% ---- Causal Conv1d ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt]
+    (3.95,-\bh) rectangle (5.35,\bh);
+  \node[alttext, align=center] at (4.65,0) {Causal\\Conv1d};
+
+  %% ---- permute (B,L,E) ----
+  \draw[altborder, fill=altdiv, line width=0.4pt]
+    (5.58,-\bh) rectangle (6.82,\bh);
+  \node[altgrey, align=center, font=\scriptsize] at (6.20,0)
+    {permute\\$(B,L,E)$};
+
+  %% ---- GELU ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt]
+    (7.13,-\bh) rectangle (8.37,\bh);
+  \node[alttext] at (7.75,0) {GELU};
+
+  %% ---- Attention ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt]
+    (8.50,-\bh) rectangle (10.10,\bh);
+  \node[alttext] at (9.30,0) {Attention};
+
+  %% ---- add circle 1 ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt, rounded corners=0pt]
+    (10.85,0) circle (0.26);
+  \node[alttext] at (10.85,0) {$+$};
+
+  %% ---- LayerNorm 2 ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt]
+    (11.62,-\bh) rectangle (13.18,\bh);
+  \node[alttext] at (12.40,0) {LayerNorm};
+
+  %% ---- MLP ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt]
+    (13.33,-\bh) rectangle (14.57,\bh);
+  \node[alttext] at (13.95,0) {MLP};
+
+  %% ---- add circle 2 ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt, rounded corners=0pt]
+    (15.50,0) circle (0.26);
+  \node[alttext] at (15.50,0) {$+$};
+
+  %% ---- output ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt]
+    (16.40,-\bh) rectangle (17.50,\bh);
+  \node[alttext] at (16.95,0) {out};
+
+  %% ---- forward arrows ----
+  \draw[fwd] (0.45,0)  -- (0.77,0);
+  \draw[fwd] (2.33,0)  -- (2.48,0);
+  \draw[fwd] (3.72,0)  -- (3.95,0);
+  \draw[fwd] (5.35,0)  -- (5.58,0);
+  \draw[fwd] (6.82,0)  -- (7.13,0);
+  \draw[fwd] (8.37,0)  -- (8.50,0);
+  \draw[fwd] (10.10,0) -- (10.59,0);
+  \draw[fwd] (11.11,0) -- (11.62,0);
+  \draw[fwd] (13.18,0) -- (13.33,0);
+  \draw[fwd] (14.57,0) -- (15.24,0);
+  \draw[fwd] (15.76,0) -- (16.40,0);
+
+  %% ---- residual 1: x -> add1 ----
+  \fill[altdkblue] (0.60,0) circle (0.045);
+  \draw[res] (0.60,0) -- (0.60,1.25) -- (10.85,1.25) -- (10.85,0.26);
+  \node[altdkblue, font=\scriptsize] at (5.70,1.42) {residual};
+
+  %% ---- residual 2: add1 out -> add2 ----
+  \fill[altdkblue] (11.35,0) circle (0.045);
+  \draw[res] (11.35,0) -- (11.35,1.25) -- (15.50,1.25) -- (15.50,0.26);
+  \node[altdkblue, font=\scriptsize] at (13.42,1.42) {residual};
+
+\end{tikzpicture}
+}
+\caption{ConvAttentionBlock: causal-conv token mixing (LayerNorm $\to$ Conv1d $\to$ GELU $\to$ Attention) and feed-forward (LayerNorm $\to$ MLP) sublayers, each wrapped in a pre-norm residual connection.}
+\label{fig:convattn_block}
+\end{figure}
+
+\begin{remark}
+  The permute is required because the Conv1D layer expects the input in the shape of (Batch, Embedding, Length), while the attention mechanism operates on (Batch, Length, Embedding). The causal convolution ensures that the model only has access to the current and previous tokens, preventing any information leakage from future tokens during training.
+\end{remark}
+
+\subsection{Alternating Convolution + Attention blocks.}
+
+In this architecture, we alternate between convolutional layers and attention layers. For example, we might have a block of convolutional layers followed by a block of attention layers, and this pattern repeats throughout the network. This allows the model to capture both local and global dependencies effectively. The architecture can be visualized as follows:
+
+\begin{figure}[H]
+\centering
+\resizebox{1.0\textwidth}{!}{%
+\begin{tikzpicture}[font=\footnotesize, line width=0.3pt, rounded corners=1.2pt,
+  fwd/.style={->, >=stealth, alttext,   line width=0.5pt},
+  res/.style={->, >=stealth, altdkblue, line width=0.6pt, dashed}]
+
+  \def\bh{0.42}
+
+  %% ---- group containers ----
+  \draw[altborder, dashed, line width=0.4pt] (0.55,-0.75) rectangle (14.40,1.55);
+  \node[alttext] at (7.48,1.74) {\textbf{Conv Block}};
+  \draw[altborder, dashed, line width=0.4pt] (14.65,-0.75) rectangle (16.45,1.55);
+  \node[alttext] at (15.55,1.74) {\textbf{Transformer Block}};
+
+  %% ---- input x ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt] (-0.45,-\bh) rectangle (0.45,\bh);
+  \node[alttext] at (0,0) {$x$};
+  %% ---- LayerNorm 1 ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt] (0.87,-\bh) rectangle (2.43,\bh);
+  \node[alttext] at (1.65,0) {LayerNorm};
+  %% ---- permute (B,E,L) ----
+  \draw[altborder, fill=altdiv, line width=0.4pt] (2.70,-\bh) rectangle (3.90,\bh);
+  \node[altgrey, align=center, font=\scriptsize] at (3.30,0) {permute\\$(B,E,L)$};
+  %% ---- Causal Conv1d ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt] (4.25,-\bh) rectangle (5.65,\bh);
+  \node[alttext, align=center] at (4.95,0) {Causal\\Conv1d};
+  %% ---- permute (B,L,E) ----
+  \draw[altborder, fill=altdiv, line width=0.4pt] (6.00,-\bh) rectangle (7.20,\bh);
+  \node[altgrey, align=center, font=\scriptsize] at (6.60,0) {permute\\$(B,L,E)$};
+  %% ---- GELU ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt] (7.45,-\bh) rectangle (8.55,\bh);
+  \node[alttext] at (8.00,0) {GELU};
+  %% ---- add 1 ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt, rounded corners=0pt] (9.35,0) circle (0.26);
+  \node[alttext] at (9.35,0) {$+$};
+  %% ---- LayerNorm 2 ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt] (10.17,-\bh) rectangle (11.73,\bh);
+  \node[alttext] at (10.95,0) {LayerNorm};
+  %% ---- MLP ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt] (12.00,-\bh) rectangle (13.10,\bh);
+  \node[alttext] at (12.55,0) {MLP};
+  %% ---- add 2 ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt, rounded corners=0pt] (13.90,0) circle (0.26);
+  \node[alttext] at (13.90,0) {$+$};
+  %% ---- MHA ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt] (14.85,-\bh) rectangle (16.25,\bh);
+  \node[alttext] at (15.55,0) {MHA};
+  %% ---- output ----
+  \draw[altborder, fill=altbgraised, line width=0.5pt] (16.55,-\bh) rectangle (17.65,\bh);
+  \node[alttext] at (17.10,0) {out};
+
+  %% ---- forward arrows ----
+  \draw[fwd] (0.45,0)--(0.87,0);   \draw[fwd] (2.43,0)--(2.70,0);
+  \draw[fwd] (3.90,0)--(4.25,0);   \draw[fwd] (5.65,0)--(6.00,0);
+  \draw[fwd] (7.20,0)--(7.45,0);   \draw[fwd] (8.55,0)--(9.09,0);
+  \draw[fwd] (9.61,0)--(10.17,0);  \draw[fwd] (11.73,0)--(12.00,0);
+  \draw[fwd] (13.10,0)--(13.64,0); \draw[fwd] (14.16,0)--(14.85,0);
+  \draw[fwd] (16.25,0)--(16.55,0);
+
+  %% ---- residual 1: x -> add1 ----
+  \fill[altdkblue] (0.66,0) circle (0.045);
+  \draw[res] (0.66,0)--(0.66,1.25)--(9.35,1.25)--(9.35,0.26);
+  \node[altdkblue, font=\scriptsize] at (5.00,1.42) {residual};
+
+  %% ---- residual 2: add1 out -> add2 ----
+  \fill[altdkblue] (9.85,0) circle (0.045);
+  \draw[res] (9.85,0)--(9.85,1.25)--(13.90,1.25)--(13.90,0.26);
+  \node[altdkblue, font=\scriptsize] at (11.88,1.42) {residual};
+
+\end{tikzpicture}
+}
+\caption{One alternating layer pair: the input $x$ passes through a Conv Block (causal-conv token mixing with two pre-norm residuals), whose output feeds a Transformer Block (multi-head attention).}
+\label{fig:conv_mha_pair}
+\end{figure}
 
 
 
