@@ -26,16 +26,21 @@ def baseline_pe(emb: t.Tensor, dim: int, pos: int):
 class BaselinePE(nn.Module):
     def __init__(self, dim: int, len: int = 1024):
         super().__init__()
+        self.dim = dim
 
+        # Registering as a buffer so it saves with the model but doesn't get trained
+        self.register_buffer("positional_encodings", self._build(len))
+
+    def _build(self, length, device=None):
         # blank canvas
-        positional_encodings = t.zeros(len, dim)
+        positional_encodings = t.zeros(length, self.dim, device=device)
 
         # positions and indices
-        positions = t.arange(0, len, dtype=t.float).unsqueeze(1)
-        even_idx = t.arange(0, dim, 2, dtype=t.float)
+        positions = t.arange(0, length, dtype=t.float, device=device).unsqueeze(1)
+        even_idx = t.arange(0, self.dim, 2, dtype=t.float, device=device)
 
         # pre-calculating the denominator and its fractional value.
-        denominator = 10000 ** (even_idx / dim)
+        denominator = 10000 ** (even_idx / self.dim)
         inv_denom = (1 / denominator).unsqueeze(0)
 
         # This was honestly crazy. Slicing through at intervals of two so that it fills only even/odd rows.
@@ -43,13 +48,14 @@ class BaselinePE(nn.Module):
         positional_encodings[:, 1::2] = t.cos(positions @ inv_denom)
 
         # Now since we have the (B, L, E) dimensions in mind.
-        positional_encodings = positional_encodings.unsqueeze(0)
-
-        # Registering as a buffer so it saves with the model but doesn't get trained
-        self.register_buffer("positional_encodings", positional_encodings)
+        return positional_encodings.unsqueeze(0)
 
     def forward(self, x):
-        x += self.positional_encodings
+        L = x.size(1)
+        # extrapolation: extend cache on-device if input is longer than cached
+        if L > self.positional_encodings.size(1):
+            self.positional_encodings = self._build(L, x.device)
+        x += self.positional_encodings[:, :L]
         return x
 
 
@@ -62,25 +68,24 @@ class RoPE(nn.Module):
             -1
         )  # shape = [128, 1]
 
-        # converting to e^{i m theta}
-        # OLD (wrong): 1j*long arange made a complex tensor that can't matmul float theta.
-        # self.e = t.exp(
-        #     1j * t.arange(seq_len).unsqueeze(-1) @ self.theta.T
-        # )  # shape = [1024, 1] x [1, 128] = [1024, 128].
-        # NEW: matmul stays float; multiply by 1j only after.
-        angles = t.arange(seq_len, dtype=t.float).unsqueeze(-1) @ self.theta.T
+        self.register_buffer("e", self._build(seq_len))
 
-        # OLD (wrong): assigning self.e then register_buffer("e", ...) collides —
-        # register_buffer raises KeyError when the name is already an attribute.
-        # self.e = t.exp(1j * angles)  # shape = [1024, 1] x [1, 128] = [1024, 128].
-        # self.e = self.e.unsqueeze(0)  # [1024, 128] -> [1, 1024, 128]
-        # self.register_buffer("e", self.e)
-        # NEW: build into a local, register once as the buffer.
-        e = t.exp(1j * angles)  # shape = [1024, 1] x [1, 128] = [1024, 128].
-        e = e.unsqueeze(0)  # [1024, 128] -> [1, 1024, 128]
-        self.register_buffer("e", e)
+    def _build(self, seq_len, device=None):
+        theta = self.theta.to(device) if device is not None else self.theta
+        # matmul stays float; multiply by 1j only after.
+        angles = (
+            t.arange(seq_len, dtype=t.float, device=device).unsqueeze(-1) @ theta.T
+        )  # shape = [seq_len, 1] x [1, 128] = [seq_len, 128].
+        e = t.exp(1j * angles)
+        return e.unsqueeze(0)  # [seq_len, 128] -> [1, seq_len, 128]
 
     def forward(self, xq, xk):
+
+        # extrapolation: extend rotation cache on-device if input is longer than cached
+        L = xq.size(-2)
+        if L > self.e.size(1):
+            self.e = self._build(L, xq.device)
+        e = self.e[:, :L]
 
         # pairing them up along the embedding dimension: [1, 2, 3, 4] -> [[1, 2], [3, 4]]
         xq_paired = xq.reshape(*xq.shape[:-1], -1, 2)
@@ -94,8 +99,8 @@ class RoPE(nn.Module):
         xk_comp = t.view_as_complex(xk_paired)
 
         # rotato.
-        xq_rot = xq_comp * self.e
-        xk_rot = xk_comp * self.e
+        xq_rot = xq_comp * e
+        xk_rot = xk_comp * e
 
         # back to real
         xq_out = t.view_as_real(xq_rot).flatten(-2)
@@ -107,28 +112,35 @@ class RoPE(nn.Module):
 class ALiBi(nn.Module):
     def __init__(self, heads: int, seq_len: int, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.heads = heads
         self.seq_len = seq_len
 
-        positions = t.arange(seq_len, dtype=t.float32)
+        self.register_buffer("alibi_bias", self._build_bias(seq_len))
+        # Create the causal mask here and register it as a buffer
+        self.register_buffer("causal_mask", self._build_mask(seq_len))
+
+    def _build_bias(self, seq_len, device=None):
+        positions = t.arange(seq_len, dtype=t.float32, device=device)
         distances = positions.unsqueeze(1) - positions.unsqueeze(0)
 
         # negative so that the penalties remain negative.
         penals = -t.abs(distances)
 
-        slopes = 2 ** -(t.arange(heads, dtype=t.float32) * 8 / heads)
-        slopes = slopes.reshape(heads, 1, 1)
+        slopes = 2 ** -(t.arange(self.heads, dtype=t.float32, device=device) * 8 / self.heads)
+        slopes = slopes.reshape(self.heads, 1, 1)
+        return slopes * penals
 
-        self.register_buffer("alibi_bias", slopes * penals)
-        
-        # Create the causal mask here and register it as a buffer
-        causal_mask = t.triu(
-            t.full((seq_len, seq_len), float("-inf")), diagonal=1
-        )
-        self.register_buffer("causal_mask", causal_mask)
+    def _build_mask(self, seq_len, device=None):
+        return t.triu(t.full((seq_len, seq_len), float("-inf"), device=device), diagonal=1)
 
     def forward(self, x):
+        # extrapolation: extend bias + mask on-device if input is longer than cached
+        L = x.size(-1)
+        if L > self.causal_mask.size(-1):
+            self.alibi_bias = self._build_bias(L, x.device)
+            self.causal_mask = self._build_mask(L, x.device)
         # Now both buffers are automatically on the same device as the model (CUDA)
-        final_attn_mask = self.alibi_bias + self.causal_mask
+        final_attn_mask = self.alibi_bias[..., :L, :L] + self.causal_mask[:L, :L]
 
         return x + final_attn_mask
 
@@ -136,22 +148,27 @@ class ALiBi(nn.Module):
 class RPE(nn.Module):
     def __init__(self, heads: int, seq_len: int, max_distance: int, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.max_distance = max_distance
 
         # shape = (distance buckets, number of heads)
         self.rpe_bias_table = nn.Embedding(max_distance + 1, heads)
 
-        positions = t.arange(seq_len)
+        self.register_buffer("c_dist_cache", self._build(seq_len))
+
+    def _build(self, seq_len, device=None):
+        positions = t.arange(seq_len, device=device)
         distances = positions.unsqueeze(1) - positions.unsqueeze(0)  # shape = (L, L)
 
-        c_dist = t.clamp(
-            distances, min=0, max=max_distance
+        return t.clamp(
+            distances, min=0, max=self.max_distance
         )  # automatically makes the negative become zero.
-
-        self.register_buffer("c_dist_cache", c_dist)
 
     def forward(self, x):
 
         cur_len = x.size(-1)
+        # extrapolation: extend distance cache on-device if input is longer than cached
+        if cur_len > self.c_dist_cache.size(-1):
+            self.c_dist_cache = self._build(cur_len, x.device)
         c_dist = self.c_dist_cache[:cur_len, :cur_len]
 
         b: t.Tensor = self.rpe_bias_table(c_dist)  # dim: (L, L, n)
