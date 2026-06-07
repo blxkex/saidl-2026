@@ -231,8 +231,17 @@ class ModularTransformer(nn.Module):
     def forward(self, x):  # x: (B, L) token ids
         h = self.token_emb(x)
         if self.use_abs_pe:
-            positions = t.arange(x.size(1), device=x.device)
-            h = h + self.PE(positions)
+            L = x.size(1)
+            if L <= self.PE.num_embeddings:
+                positions = t.arange(L, device=x.device)
+                pe = self.PE(positions)
+            else:
+                # extrapolation: ViT-style positional interpolation of the learned
+                # table up to length L (exact when L <= ctx_len).
+                w = self.PE.weight.unsqueeze(0).permute(0, 2, 1)  # (1, dim, ctx_len)
+                w = F.interpolate(w, size=L, mode="linear", align_corners=False)
+                pe = w.permute(0, 2, 1).squeeze(0)  # (L, dim)
+            h = h + pe
         for block in self.blocks:
             h = block(h)
         h = self.ln_final(h)

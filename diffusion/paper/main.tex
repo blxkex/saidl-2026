@@ -348,7 +348,9 @@
     before upper={\textbf{\small Abstract.}\hspace{0.5em}}
 ]
 \small
-Diffusion hehehe
+This report describes my implementation of a diffusion transformer for image generation, with additional modules for Global Cyclic Refinement and Residual Adaptive Channel Denoising (RACD). I use Global Cyclic Refinement to encourage consistency across denoising stages and RACD to adaptively preserve fine details while reducing artifacts.
+
+I evaluate the model using CLIP-based Conditional Maximum Mean Discrepancy (CMMD) for semantic alignment and Fréchet Inception Distance (FID) for image quality. 
 \end{tcolorbox}
 
 \vspace{0.5em}
@@ -356,6 +358,13 @@ Diffusion hehehe
 % ─────────────────────────────────────────────────────────────────
 
 \section{Introduction.}
+
+Diffusion models have emerged as one of the most effective families of generative models for high-fidelity image synthesis. Unlike GANs, which learn a direct mapping from noise to images, diffusion models gradually transform noise into data through a sequence of stochastic denoising steps. This iterative refinement process allows diffusion models to capture complex data distributions and generate high-quality samples with lesser artifacts. 
+
+In this report, I implement a DiT (Diffusion Transformer) architecture, which leverages the self-attention mechanism of transformers to model long-range dependencies in images. I also incorporate two key modules: Global Cyclic Refinement, which promotes consistency across denoising stages by feeding intermediate outputs back into the model, and Residual Adaptive Channel Denoising (RACD), which adaptively preserves fine details while reducing noise.
+
+
+\section{DiT Architecture.}
 
 
 

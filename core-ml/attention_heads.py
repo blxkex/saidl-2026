@@ -87,6 +87,9 @@ class MaskedMultiHeadedAttention(nn.Module):
         scaled_dot = dot_prod / math.sqrt(self.head_dim)
 
         # applying causal mask.
+        # extrapolation: extend mask on-device if input is longer than cached
+        if L > self.causal_mask.size(-1):
+            self.causal_mask = t.tril(t.ones(L, L, device=x.device))
         causal = self.causal_mask[
             :L, :L
         ]  # slicing to the current length (only affects the edge cases).
@@ -143,31 +146,16 @@ class FlexibleAttentionBlock(nn.Module):
             self.PE = RPE(heads=heads, seq_len=seq_len, max_distance=max_distance)
 
         # masking part
-        positions = t.arange(seq_len)
+        self.window_size = window_size
 
         if self.variant == "SWA":
             assert (
                 window_size is not None
             ), "Nigga, pass in window_size if you using SWA."
-
-            distances = positions.unsqueeze(1) - positions.unsqueeze(0)
-            allowed = (distances >= 0) & (distances < window_size)
-            mask = t.where(allowed, 0.0, float("-inf"))
-
             self.groups = self.heads
-        else:
-            # Standard causal mask for MQA / GQA so it doesn't throw an error
-            # WRONG: kept i <= j (upper triangle) => query attends FUTURE keys, lookahead bug.
-            # mask = t.where(
-            #     positions.unsqueeze(1) <= positions.unsqueeze(0), 0.0, float("-inf")
-            # )
-            # query i attends keys j <= i (past + self); lower triangle kept.
-            mask = t.where(
-                positions.unsqueeze(1) >= positions.unsqueeze(0), 0.0, float("-inf")
-            )
 
         # Register as a buffer so PyTorch handles moving it to the GPU automatically
-        self.register_buffer("attn_mask", mask)
+        self.register_buffer("attn_mask", self._build_mask(seq_len))
 
         if self.variant == "MQA":
             self.groups = 1
@@ -191,9 +179,23 @@ class FlexibleAttentionBlock(nn.Module):
 
         self.Wo = nn.Linear(dim, dim)  # output projection.
 
+    def _build_mask(self, seq_len, device=None):
+        positions = t.arange(seq_len, device=device)
+        if self.variant == "SWA":
+            distances = positions.unsqueeze(1) - positions.unsqueeze(0)
+            allowed = (distances >= 0) & (distances < self.window_size)
+            return t.where(allowed, 0.0, float("-inf"))
+        # Standard causal mask for MQA / GQA: query i attends keys j <= i (lower triangle).
+        return t.where(
+            positions.unsqueeze(1) >= positions.unsqueeze(0), 0.0, float("-inf")
+        )
+
     def forward(self, x: t.Tensor):
 
         B, L, _ = x.size()
+        # extrapolation: extend mask on-device if input is longer than cached
+        if L > self.attn_mask.size(-1):
+            self.attn_mask = self._build_mask(L, x.device)
         masked_attn = self.attn_mask[
             :L, :L
         ]  # slicing to the current length (only affects edge cases).
