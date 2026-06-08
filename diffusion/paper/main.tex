@@ -33,6 +33,7 @@
 \usetikzlibrary{calc}
 \usepackage{dblfloatfix}
 \usepackage{wrapfig}
+\usepackage{pgfplots}
 
 % ─────────────────────────────────────────────────────────────────
 %  COLOR SYSTEM  (light / default scientific palette)
@@ -348,7 +349,7 @@
     before upper={\textbf{\small Abstract.}\hspace{0.5em}}
 ]
 \small
-This report describes my implementation of a diffusion transformer for image generation, with additional modules for Global Cyclic Refinement and Residual Adaptive Channel Denoising (RACD). I use Global Cyclic Refinement to encourage consistency across denoising stages and RACD to adaptively preserve fine details while reducing artifacts.
+This report describes my implementation of a diffusion transformer for image generation, with additional modules for Global Cyclic Refinement and Regionally-Adaptive Channel Denoising (RACD). I use Global Cyclic Refinement to encourage consistency across denoising stages and RACD to adaptively preserve fine details while reducing artifacts.
 
 I evaluate the model using CLIP-based Conditional Maximum Mean Discrepancy (CMMD) for semantic alignment and Fréchet Inception Distance (FID) for image quality. 
 \end{tcolorbox}
@@ -361,11 +362,369 @@ I evaluate the model using CLIP-based Conditional Maximum Mean Discrepancy (CMMD
 
 Diffusion models have emerged as one of the most effective families of generative models for high-fidelity image synthesis. Unlike GANs, which learn a direct mapping from noise to images, diffusion models gradually transform noise into data through a sequence of stochastic denoising steps. This iterative refinement process allows diffusion models to capture complex data distributions and generate high-quality samples with lesser artifacts. 
 
-In this report, I implement a DiT (Diffusion Transformer) architecture, which leverages the self-attention mechanism of transformers to model long-range dependencies in images. I also incorporate two key modules: Global Cyclic Refinement, which promotes consistency across denoising stages by feeding intermediate outputs back into the model, and Residual Adaptive Channel Denoising (RACD), which adaptively preserves fine details while reducing noise.
+In this report, I implement a DiT (Diffusion Transformer) architecture, which leverages the self-attention mechanism of transformers to model long-range dependencies in images. I also incorporate two key modules: Global Cyclic Refinement, which promotes consistency across denoising stages by feeding intermediate outputs back into the model, and Regionally-Adaptive Channel Denoising (RACD), which adaptively preserves fine details while reducing noise.
 
 
-\section{Latent Diffusion Transformer Architecture.}
+\section{Latent Diffusion Transformer Architecture. (DiT)}
+
+\begin{wrapfigure}{r}{0.45\textwidth} % 'r' pushes it right, 0.45 is the width of the box
+\centering
+\scalebox{0.75}{ % Tweak this 0.75 to make it bigger or smaller
+\begin{tikzpicture}[
+  box/.style={draw=black, fill=white, align=center, inner sep=5pt,
+              minimum height=0.85cm, line width=0.7pt},
+  arr/.style={-{Stealth[length=2.4mm,width=2mm]}, line width=0.6pt}]
+
+  % bottom inputs
+  \node[box, minimum width=2.2cm] (nl) at (-1.5,0)
+    {Noised Latent\\{\scriptsize $32\times32\times4$}};
+  \node[box, minimum width=1.3cm, minimum height=0.7cm, font=\footnotesize] (ts) at (0.7,0.075) {Timestep $t$};
+  \node[box, minimum width=1.1cm, minimum height=0.7cm, font=\footnotesize] (ly) at (2.05,0.075) {Label $y$};
+  
+  % patchify / embed
+  \node[box, minimum width=2.2cm] (patch) at (-1.5,1.6) {Patchify};
+  \node[box, minimum width=2.6cm] (embed) at (1.4,1.6)  {Embed};
+  
+  % DiT block
+  \node[box, minimum width=4.8cm, minimum height=1.3cm, line width=1pt] (dit) at (0,3.5) {DiT Block};
+  \node[font=\Large] at (-3.0,3.5) {$N\times$};
+  
+  % top stack
+  \node[box, minimum width=3.8cm] (ln)  at (0,5.4) {Layer Norm};
+  \node[box, minimum width=4.0cm] (lin) at (0,6.6) {Linear and Reshape};
+  
+  % outputs
+  \node[box, minimum width=1.9cm] (noise) at (-1.1,7.9)
+    {Noise\\{\scriptsize $32\times32\times4$}};
+  \node[box, minimum width=1.9cm] (sig)   at (1.1,7.9)
+    {$\Sigma$\\{\scriptsize $32\times32\times4$}};
+
+  % arrows
+  \draw[arr] (nl.north)    -- (patch.south);
+  \draw[arr] (ts.north)    -- ([xshift=-8mm]embed.south);
+  \draw[arr] (ly.north)    -- ([xshift=8mm]embed.south);
+  \draw[arr] (patch.north) -- ([xshift=-15mm]dit.south);
+  \draw[arr] (embed.north) -- ([xshift=14mm]dit.south);
+  \draw[arr] (dit.north)   -- (ln.south);
+  \draw[arr] (ln.north)    -- (lin.south);
+  \draw[arr] ([xshift=-11mm]lin.north) -- (noise.south);
+  \draw[arr] ([xshift=11mm]lin.north)  -- (sig.south);
+\end{tikzpicture}
+}
+\caption{Latent Diffusion Transformer (DiT).}
+\label{fig:dit}
+\end{wrapfigure}
+
+The DiT works not in the pixel space but in a latent space obtained from an autoencoder. This allows the model to focus on high-level features and also reduces the computational burden. It gets two inputs, one is the noisy latents and the other is the conditioning information (class labels and timestep embeddings). 
+
+\subsection{Forward Diffusion Process. (Noising of the data)}
+
+The forward diffusion process gradually adds noise to the data over a series of timesteps. At each timestep \(t\), the data \(x_0\) is corrupted to produce a noisy version \(x_t\). The noise is typically Gaussian and can be written as,
+
+\[
+    x_t = \sqrt{\alpha_t} x_0 + \sqrt{1 - \alpha_t} \epsilon
+\]
+
+Where \(\alpha_t\) is a noise schedule that controls the amount of noise added at each timestep, and \(\epsilon\) is sampled from a standard normal distribution. As \(t\) increases, the data becomes more corrupted, eventually converging to pure noise.
+
+\subsection{Class Labels and TimeStep Embeddings.}
+
+For this assignment, the dataset is only of Landscapes, so the class labels are unconditional, resulting in a single class. 
+
+The timestep embeddings however are generated using a sinusoidal positional encoding scheme, similar to the one used in the original Transformer architecture. This allows the model to incorporate information about the current timestep \(t\) into its computations, which is crucial for the denoising process. The timestep embedding can be defined as:
+
+\[
+    \text{TE}(t, 2i) = \sin\left(\frac{t}{10000^{2i/d}}\right), \quad
+    \text{TE}(t, 2i+1) = \cos\left(\frac{t}{10000^{2i/d}}\right)
+\]
+
+Where \(d\) is the dimensionality of the embedding space, and \(i\) is the index of the dimension. On top of this, there's an MLP that processes the timestep embeddings before they are concatenated with the class embeddings and fed into the transformer blocks. 
+
+\[
+    \text{MLP}_{\text{TE}(t)} = W_2 \cdot \mathrm{SiLU}(W_1 \cdot \text{TE}(t) + b_1) + b_2  
+\]
+
+\subsection{Patchification and Position Embeddings.}
+
+The input image is first passed through a patchification process, where it is divided into patches of size \(8 \times 8\). Each patch is then flattened and projected into a higher-dimensional space using a linear layer, resulting in a sequence of patch embeddings, where each patch can be thought of as a \emph{token} in the transformer architecture. To retain spatial information, learnable position embeddings are added to the path embeddings.  
+
+\subsection{DiT Block.}
+
+\begin{wrapfigure}{l}{0.45\textwidth} % 'l' anchors it to the left
+\centering
+\scalebox{0.6}{ % Scaled down extra since this is a tall boy
+\begin{tikzpicture}[
+  box/.style={draw=black, fill=white, align=center, inner sep=5pt,
+              minimum width=1.8cm, minimum height=0.85cm, line width=0.7pt},
+  tbox/.style={box, minimum height=1.3cm},
+  arr/.style={-{Stealth[length=2.4mm,width=2mm]}, line width=0.6pt},
+  lin/.style={draw=black, line width=0.6pt}]
+
+  \node[box]  (input) at (0, 0.000) {Input Tokens};
+  \node[box]  (ln1)   at (0, 1.350) {Layer Norm};
+  \node[box]  (ss1)   at (0, 2.600) {Scale, Shift};
+  \node[tbox] (mhsa)  at (0, 4.075) {Multi-Head\\Self-Attention};
+  \node[box]  (sc1)   at (0, 5.550) {Scale};
+  \draw[line width=0.7pt, fill=white] (0,6.655) circle (0.28); \node at (0,6.655) {$+$};
+  \node[box]  (ln2)   at (0, 7.760) {Layer Norm};
+  \node[box]  (ss2)   at (0, 9.010) {Scale, Shift};
+  \node[tbox] (pff)   at (0,10.485) {Pointwise\\Feedforward};
+  \node[box]  (sc2)   at (0,11.960) {Scale};
+  \draw[line width=0.7pt, fill=white] (0,13.065) circle (0.28); \node at (0,13.065) {$+$};
+
+  \node[box, minimum width=1.6cm] (cond) at (3.1, 0.000) {Conditioning};
+  \node[box, minimum width=1.4cm] (mlp)  at (3.1, 1.350) {MLP};
+
+  % forward flow
+  \draw[arr] (0, 0.425)--(0, 0.925); \draw[arr] (0, 1.775)--(0, 2.175);
+  \draw[arr] (0, 3.025)--(0, 3.425); \draw[arr] (0, 4.725)--(0, 5.125);
+  \draw[arr] (0, 5.975)--(0, 6.375); \draw[arr] (0, 6.935)--(0, 7.335);
+  \draw[arr] (0, 8.185)--(0, 8.585); \draw[arr] (0, 9.435)--(0, 9.835);
+  \draw[arr] (0,11.135)--(0,11.535); \draw[arr] (0,12.385)--(0,12.785);
+  \draw[arr] (0,13.345)--(0,13.90);
+  \draw[arr] (cond.north) -- (mlp.south);
+
+  % conditioning trunk + branches
+  \draw[lin] (mlp.west)--(1.5,1.35); \draw[lin] (1.5,1.35)--(1.5,12.4);
+  \draw[arr] (1.5, 2.60)--(ss1.east); \node[font=\scriptsize,anchor=south west] at (1.52, 2.63) {$\gamma_1,\beta_1$};
+  \draw[arr] (1.5, 5.55)--(sc1.east); \node[font=\scriptsize,anchor=south west] at (1.52, 5.58) {$\alpha_1$};
+  \draw[arr] (1.5, 9.01)--(ss2.east); \node[font=\scriptsize,anchor=south west] at (1.52, 9.04) {$\gamma_2,\beta_2$};
+  \draw[arr] (1.5,11.96)--(sc2.east); \node[font=\scriptsize,anchor=south west] at (1.52,11.99) {$\alpha_2$};
+
+  % residual 1
+  \fill (0,0.70) circle (0.07);
+  \draw[lin] (0,0.70)--(-1.3,0.70); \draw[lin] (-1.3,0.70)--(-1.3,6.655);
+  \draw[arr] (-1.3,6.655)--(-0.28,6.655);
+  % residual 2
+  \fill (0,7.10) circle (0.07);
+  \draw[lin] (0,7.10)--(-1.3,7.10); \draw[lin] (-1.3,7.10)--(-1.3,13.065);
+  \draw[arr] (-1.3,13.065)--(-0.28,13.065);
+
+  \draw[line width=0.8pt] (-1.7,-0.65) rectangle (5,14.0);
+\end{tikzpicture}
+}
+\caption{DiT Block with adaLN-Zero conditioning. The MLP processes the conditioning signal and predicts six modulation parameters $(\gamma_1,\beta_1,\alpha_1,\gamma_2,\beta_2,\alpha_2)$ applied to the attention and feedforward sublayers via scale/shift and residual scaling.}
+\label{fig:dit_block}
+\end{wrapfigure}
 
 
+This is the core of the architecture, where the actual denoising happens. Each DiT block consists of a multi-headed self-attention mechanism, very similar to the one used in standard transformers. There are a few different ways in which conditioning can be applied in the DiT block, but in this implementation, I stick to the adaLN-Zero conditioning method, where the timestep and class embeddings are used to modulate the layer normalization parameters.
+
+\subsubsection{adaLN-Zero.}
+
+In the adaLN-Zero method, there are 6 parameters that are learned from the conditioning input. 
+
+\[
+    X_c = X_{ts} + X_{cls}, \quad X_c \in \R^{d}
+\]
+
+\[
+    \mathcal{A} = \text{SiLU}(W_a X_c + b_a), \quad \mathcal{A} \in \R^{6d}
+\]
+
+And then we split the \(\mathcal{A} \) into 6 features which are used to modulate the layernorms. 
+
+\WFclear
+\newpage
+
+\subsection{Reverse Diffusion Process. (Denoising)}
+
+For both forward and reverse processes, we use the frozen autoencoder from the original DiT paper to encode images into the latent space and decode them back. The reverse diffusion process is where the actual generation happens. After the DiT predicts a noise estimate \(\hat{\epsilon}\), there'll be a step to compute the denoised latents \(\hat{x}_0\) and the variance \(\Sigma\). The model is trained to minimize the mean squared error between the predicted noise and the true noise added in the forward process.
+
+
+\section{Global Cyclic Refinement.}
+
+In this process, we take the predicted latents from the DiT and feed them back into the model for a second pass of denoising, as a \emph{refinement} step. For this assignment, the timestep has been set to \(t = 200\) for the refinement pass, which is a mid-way point in the diffusion process. 
+
+\begin{remark}[Is there a visual improvement over baseline?]
+    \newcommand{\compimgwidth}{0.2\textwidth}
+    \begin{center}
+    \begin{tabular}{cc}
+        \textbf{Baseline} & \textbf{Global} \\
+        \hline
+        \includegraphics[width=\compimgwidth]{assets/baseline_seed10.png} & 
+        \includegraphics[width=\compimgwidth]{assets/global_seed10.png} \\
+        Seed 10 & Seed 10 \\
+        \hline
+        \includegraphics[width=\compimgwidth]{assets/baseline_seed15.png} & 
+        \includegraphics[width=\compimgwidth]{assets/global_seed15.png} \\
+        Seed 15 & Seed 15 \\
+        \hline
+        \includegraphics[width=\compimgwidth]{assets/baseline_seed20.png} & 
+        \includegraphics[width=\compimgwidth]{assets/global_seed20.png} \\
+        Seed 20 & Seed 20 \\
+    \end{tabular}
+    \end{center}
+
+    As you can see, there's a marginal \emph{difference} in the generated images. Whether it is better may be subjective. The objective thing is that the CMMD score is worse for the global cyclic refinement, which implies that the global cyclic refinement is actually making the generated images less semantically aligned with the reference images. In this case, the DiT is still undertrained, so the global refinement just kinda blurs out the image, reducing the already existing features. 
+
+\end{remark}
+
+\newpage
+
+\section{Regionally Adaptive Channel Denoising (RACD).}
+
+RACD is like a middle ground between the two extremes of aggressive denoising (which can lead to loss of details) and conservative denoising (which can leave artifacts). The idea is to adaptively determine how much of the predicted noise to subtract from the input latents, based on the confidence of the model's predictions. We first train a \emph{Difficulty Predictor}, by freezing the DiT and training a linear layer on top of the features from the last attention layer. Using Tweedie's formula, we estimate the latent prediction. 
+
+\[
+    x_0^{\text{pred}} = \frac{1}{\sqrt{\alpha_t}} \left( x_t - \sqrt{1 - \alpha_t} \hat{\epsilon} \right)
+\]
+
+The difference between the predicted latents and the ground truth latents is used as a measure of difficulty. During inference, the scores map is computed using the difficulty predictor, and a threshold \(\tau\) is applied to determine which regions should be denoised more aggressively. 
+
+\section{Evaluation Metrics.}
+
+For evaluation, I use two metrics: CLIP-based Conditional Maximum Mean Discrepancy (CMMD) and Fréchet Inception Distance (FID). It measures the distance between the distribution of reference (real) images and generated (fake) images using CLIP embeddings. It then applies the Maximum Mean Discrepancy (MMD) statistical test with a Gaussian RBF kernel. FID on the other hand, measures the distance between the feature distributions of real and generated images using a pre-trained Inception network. CLIP is more reliable in low sample number regimes, while FID is more sensitive to sample quality and diversity. 
+
+
+% Preamble needs: \usepackage{pgfplots, booktabs}
+% \pgfplotsset{compat=1.18}
+
+\begin{figure}[htbp]
+\begin{minipage}[t]{0.48\textwidth}
+\vspace{0pt}
+\captionof{table}{Quantitative evaluation of fidelity and
+computational efficiency across baseline DiT, global cyclic refinement,
+and RACD variants. Generation time is for 200 samples.}
+\label{tab:results}
+\smallskip
+\begin{tabular}{lccc}
+  \toprule
+  Configuration & FID\,$\downarrow$ & CMMD\,$\downarrow$ & Gen Time (s) \\
+  \midrule
+  Baseline DiT          & 305.20 & 4.76 & 5.50 \\
+  Global Cyclic         & 292.90 & 4.96 & 6.40 \\
+  RACD ($\tau=0.3$)     & 301.11 & 4.80 & 6.50 \\
+  RACD ($\tau=0.5$)     & 302.40 & 4.81 & 6.50 \\
+  RACD ($\tau=0.7$)     & 296.04 & 4.81 & 6.50 \\
+  \bottomrule
+\end{tabular}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}
+\vspace{0pt}
+\begin{tikzpicture}
+\begin{axis}[
+  width=7.5cm, height=6.5cm,
+  xlabel={Generation Time (s)},
+  ylabel={CMMD Score},
+  xmin=5.25, xmax=6.75,
+  ymin=4.72,  ymax=5.02,
+  xtick={5.5, 6.0, 6.5},
+  ytick={4.75, 4.85, 4.95},
+  tick align=outside,
+  minor tick num=1,
+  grid=both,
+  grid style={line width=0.3pt, draw=gray!25},
+  major grid style={line width=0.5pt, draw=gray!45},
+  axis line style={line width=0.6pt},
+  tick style={line width=0.5pt},
+  legend style={
+  at={(0.03, 0.97)},
+  anchor=north west,
+  legend columns=1,
+  font=\small,
+  draw=black,
+  fill=white,
+  line width=0.5pt,
+  inner sep=4pt,
+},
+]
+\addplot[only marks, mark=*,         mark size=3.2pt, color=blue!85!black]
+  coordinates {(5.50, 4.76)};
+\addlegendentry{Baseline DiT}
+
+\addplot[only marks, mark=square*,   mark size=3.0pt, color=red!80!black]
+  coordinates {(6.40, 4.96)};
+\addlegendentry{Global Cyclic}
+
+\addplot[only marks, mark=triangle*, mark size=3.2pt, color=green!55!black]
+  coordinates {(6.48, 4.80)};
+\addlegendentry{RACD ($\tau=0.3$)}
+
+\addplot[only marks, mark=diamond*,  mark size=3.5pt, color=orange!90!black]
+  coordinates {(6.50, 4.81)};
+\addlegendentry{RACD ($\tau=0.5$)}
+
+\addplot[only marks, mark=x, mark size=4.2pt, line width=1.2pt, color=red!60!black]
+  coordinates {(6.52, 4.81)};
+\addlegendentry{RACD ($\tau=0.7$)}
+\end{axis}
+\end{tikzpicture}
+\captionof{figure}{Generative fidelity (CMMD) vs.\ computational
+efficiency trade-off.}
+\label{fig:scatter}
+\end{minipage}
+\end{figure}
+
+\begin{remark}[Compute Trade-Offs and why no effect of changing \(\tau\)? ]
+    The global cyclic refinement adds an extra pass through the DiT, which increases the generation time by about 0.9 seconds on average. RACD adds a small overhead due to the additional linear layer and the computation of the scores map, but this is relatively minor compared to the overall generation time. 
+
+    As for the lack of significant difference in CMMD scores across different \(\tau\) values, it could be that since the DiT is still undertrained the intermediate noise predictions are not yet fully calibrated, the predictor network struggles to make nuanced, continuous distinctions between high and low-difficulty patches. As a result, the scores map \(M\) may not have a strong correlation with actual patch difficulty, leading to similar denoising behavior across different \(\tau\) thresholds and thus similar CMMD scores. Optimal tuning of \(\tau\) requires a more mature DiT, but for the sake of this assignment, i have notices in some testings that the benchmarks of \( \boxed{\tau = 0.3}\) being better, but most of the times they are similar.
+\end{remark}
+
+\section{Configuration.}
+
+The DiT backbone shared by all three configurations was trained with the settings in
+\Cref{tab:trainconfig}. Training is unconditional ($\varepsilon$-prediction, MSE loss) on
+VAE latents of a landscape dataset; the same checkpoint (\texttt{dit\_best.pt}) is used for
+baseline, Global Cyclic and RACD sampling.
+
+\begin{table}[H]
+    \centering
+    \caption{Training configuration for the DiT backbone.}
+    \label{tab:trainconfig}
+    \small
+    \setlength{\tabcolsep}{6pt}
+    \renewcommand{\arraystretch}{1.05}
+    \begin{tabular}{ll@{\hskip 2em}ll}
+        \toprule
+        \multicolumn{2}{l}{\textbf{Architecture (DiT)}} & \multicolumn{2}{l}{\textbf{Optimization}} \\
+        \midrule
+        Hidden size      & 768            & Optimizer        & AdamW \\
+        Transformer blocks & 12           & Learning rate    & $1\times10^{-4}$ \\
+        Attention heads  & 12             & Weight decay     & $1\times10^{-4}$ \\
+        Patch size       & 8              & Precision        & Mixed (AMP) \\
+        Latent channels  & 4              & Batch size       & 16 $\times$ 2 accum.\ (eff.\ 32) \\
+        Conditioning     & Unconditional  & Epochs           & 100 \\
+        \midrule
+        \multicolumn{2}{l}{\textbf{Diffusion / data}} & \multicolumn{2}{l}{} \\
+        \midrule
+        Train timesteps  & 1000           & VAE              & SD-VAE-ft-ema (frozen) \\
+        Noise schedule   & linear $\beta\,{=}\,10^{-4}{\to}0.02$ & Latent resolution & $32\times32\times4$ \\
+        Objective        & $\varepsilon$-pred, MSE & Image resolution & $256\times256$ \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\section{Future Scope.}
+
+I believe that this DiT was severely undertrained, due to which a lot of the nuances of the refinement schemes were not fully realized. With more training, I expect to see a more significant improvement from the global cyclic refinement, and a more noticeable difference between different \(\tau\) values in RACD.
+
+\newpage
+
+\section{Generations.}
+
+\begin{figure}[H]
+    \centering
+    \newcommand{\qw}{0.2\textwidth}
+    \setlength{\tabcolsep}{2pt}
+    \renewcommand{\arraystretch}{0.3}
+    \begin{tabular}{ccc}
+        \textbf{Baseline} & \textbf{Global Cyclic} & \textbf{RACD ($\tau=0.3$)} \\[3pt]
+        \includegraphics[width=\qw]{generations/baseline_seed646713608.png}  & \includegraphics[width=\qw]{generations/global_seed646713608.png}  & \includegraphics[width=\qw]{generations/racd_seed646713608.png}  \\
+        \includegraphics[width=\qw]{generations/baseline_seed1870208874.png} & \includegraphics[width=\qw]{generations/global_seed1870208874.png} & \includegraphics[width=\qw]{generations/racd_seed1870208874.png} \\
+        \includegraphics[width=\qw]{generations/baseline_seed1900990647.png} & \includegraphics[width=\qw]{generations/global_seed1900990647.png} & \includegraphics[width=\qw]{generations/racd_seed1900990647.png} \\
+        \includegraphics[width=\qw]{generations/baseline_seed1247441371.png} & \includegraphics[width=\qw]{generations/global_seed1247441371.png} & \includegraphics[width=\qw]{generations/racd_seed1247441371.png} \\
+        \includegraphics[width=\qw]{generations/baseline_seed604895015.png}  & \includegraphics[width=\qw]{generations/global_seed604895015.png}  & \includegraphics[width=\qw]{generations/racd_seed604895015.png}  \\
+    \end{tabular}
+    \caption{Qualitative comparison across configurations. Each row shares a single random
+    seed across the three columns, so differences are attributable to the refinement scheme
+    rather than the initial noise. Sampling config: 50 DDIM steps over a $32\times32\times4$
+    latent (1000 train timesteps), decoded with the SD-VAE. Global Cyclic and RACD both
+    re-inject noise up to timestep $t=200$; RACD masks refinement to high-difficulty patches
+    on a $4\times4$ grid with threshold $\tau=0.3$.}
+    \label{fig:qualitative}
+\end{figure}
 
 \end{document}

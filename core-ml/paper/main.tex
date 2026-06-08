@@ -1200,6 +1200,126 @@ In this architecture, we alternate between convolutional layers and attention la
 \label{fig:conv_mha_pair}
 \end{figure}
 
+\newpage
+
+\section{Training And Evaluation.}
+
+All training and evaluation are conducted on the same hardware setup. I used Google Colab with NVIDIA T4 GPU, which has 16GB of VRAM. The models were trained for 15 epochs with a batch size of 4, but a gradient accumulation step of 4 was used to effectively achieve a batch size of 16 without running out of memory. The embedding dimension was set to 256, and the number of attention heads was 8 and 6 layers.
+
+  \begin{table}[H]
+  \centering
+\caption{Training and validation performance of architecture variants on WikiText-2}
+\label{tab:core_ml_results_perf}
+\begin{tabular}{lcccc}
+\toprule
+Model & Train Loss & Train PPL & Val Loss & Val PPL \\
+\midrule
+baseline\_mha & 4.59 & 98.5 & 5.81 & 333.6 \\
+baseline\_mha & 4.58 & 97.21 & 5.79 & 328.48 \\
+RoPE\_SWA & 3.87 & 48 & 5.23 & 186.86 \\
+RoPE\_MQA & 4.02 & 55.47 & 5.23 & 187.31 \\
+RoPE\_GQA & 3.96 & 52.64 & 5.22 & 184.23 \\
+ALiBi\_SWA & 3.82 & 45.48 & 5.24 & 187.96 \\
+ALiBi\_GQA & 3.91 & 49.73 & 5.21 & 182.24 \\
+RPE\_SWA & 4.07 & 58.77 & 5.41 & 222.65 \\
+RPE\_MQA & 4.25 & 70.44 & 5.39 & 219.71 \\
+RPE\_GQA & 4.25 & 69.95 & 5.42 & 226.13 \\
+conv\_hybrid\_baseline\_mha & 4.26 & 70.92 & 5.74 & 312.41 \\
+conv\_hybrid\_ALiBi\_GQA & 3.81 & 45.21 & 5.27 & 194.15 \\
+conv\_alternating\_baseline\_mha & 4.21 & 67.29 & 5.69 & 295.53 \\
+conv\_alternating\_ALiBi\_GQA & 3.8 & 44.49 & 5.33 & 205.71 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+  \begin{table}[H]
+  \centering
+\caption{Computational and system metrics of architecture variants on WikiText-2}
+\label{tab:core_ml_results_sys}
+\begin{tabular}{lccc}
+\toprule
+Model & Peak Mem (MB) & Time/Epoch (s) & Throughput (tok/s) \\
+\midrule
+baseline\_mha & 4823 & 172 & 14,023 \\
+baseline\_mha & 4823 & 172 & 14,022 \\
+RoPE\_SWA & 4814 & 159.7 & 15,108 \\
+RoPE\_MQA & 4804 & 158.8 & 15,191 \\
+RoPE\_GQA & 4805 & 159.8 & 15,099 \\
+ALiBi\_SWA & 5029 & 166 & 14,534 \\
+ALiBi\_GQA & 5020 & 166.6 & 14,479 \\
+RPE\_SWA & 4861 & 196.8 & 12,257 \\
+RPE\_MQA & 4851 & 194.4 & 12,410 \\
+RPE\_GQA & 4852 & 194.7 & 12,388 \\
+conv\_hybrid\_baseline\_mha & 4937 & 184.7 & 13,061 \\
+conv\_hybrid\_ALiBi\_GQA & 5134 & 177.4 & 13,597 \\
+conv\_alternating\_baseline\_mha & 4385 & 143.2 & 16,843 \\
+conv\_alternating\_ALiBi\_GQA & 4482 & 140 & 17,232 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+\subsection{Extrapolation Results.}
+
+\begin{table}[H]
+\centering
+\caption{Extrapolation test results: Perplexity across increasing context lengths.}
+\label{tab:extrapolation_ppl}
+\begin{tabular}{lccc}
+\toprule
+Model & PPL (512) & PPL (1024) & PPL (2048) \\
+\midrule
+ALiBi\_GQA & 186.2 & 182.2 & 180.6 \\
+ALiBi\_SWA & 191.9 & 188.0 & 186.5 \\
+RPE\_GQA & 230.6 & 226.1 & 230.6 \\
+RPE\_MQA & 224.5 & 219.7 & 223.5 \\
+RPE\_SWA & 228.0 & 222.7 & 220.3 \\
+RoPE\_GQA & 189.5 & 184.2 & 203.2 \\
+RoPE\_MQA & 192.8 & 187.3 & 213.7 \\
+RoPE\_SWA & 190.9 & 186.9 & 184.8 \\
+baseline\_mha & 336.4 & 328.5 & Crash \\
+conv\_alternating\_ALiBi\_GQA & 209.3 & 205.7 & 204.1 \\
+conv\_alternating\_baseline\_mha & 300.1 & 295.5 & Crash \\
+conv\_hybrid\_ALiBi\_GQA & 197.9 & 194.2 & 192.7 \\
+conv\_hybrid\_baseline\_mha & 316.8 & 312.4 & Crash \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Extrapolation test results: Throughput across increasing context lengths.}
+\label{tab:extrapolation_throughput}
+\begin{tabular}{lccc}
+\toprule
+Model & TP 512 (tok/s) & TP 1024 (tok/s) & TP 2048 (tok/s) \\
+\midrule
+ALiBi\_GQA & 51,520 & 40,331 & 28,193 \\
+ALiBi\_SWA & 50,074 & 40,109 & 28,182 \\
+RPE\_GQA & 50,340 & 39,742 & 27,787 \\
+RPE\_MQA & 50,473 & 40,012 & 27,921 \\
+RPE\_SWA & 50,338 & 39,733 & 27,945 \\
+RoPE\_GQA & 53,960 & 43,782 & 32,480 \\
+RoPE\_MQA & 56,315 & 45,497 & 33,511 \\
+RoPE\_SWA & 55,830 & 45,431 & 33,727 \\
+baseline\_mha & 55,285 & 44,295 & - \\
+conv\_alternating\_ALiBi\_GQA & 59,054 & 51,664 & 40,850 \\
+conv\_alternating\_baseline\_mha & 59,509 & 52,396 & - \\
+conv\_hybrid\_ALiBi\_GQA & 48,257 & 37,871 & 26,790 \\
+conv\_hybrid\_baseline\_mha & 48,826 & 39,822 & - \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{remark}
+  The baseline MHA models crash because I had the Embeddings pre-baked along with the data preprocessing. So they weren't able to extrapolate to longer context lengths. 
+
+  The best performing combination was ALiBi-GQA and RoPE-GQA comes close to it.
+
+  We also notice that the convolutional networks have notriceably higher throughputs. Moreover, they trained faster as well. This is because the convolutions are less computationally intensive than attention mechanism. However, they do have higher memory usage, which is likely due to the fact that the convolutional layers have more parameters than the attention layers, and also because of the intermediate activations that need to be stored for backpropagation.
+\end{remark}
+
 
 
 \end{document}

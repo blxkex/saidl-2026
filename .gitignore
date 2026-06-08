@@ -37,3 +37,7 @@ dataset/
 latent_cache.pt
 CHANGES.md
 wandb/
+
+assets/
+refine_eval/
+generations/
